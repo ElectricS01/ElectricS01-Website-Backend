@@ -1,0 +1,15 @@
+{
+  "name": "ElectricS01-Website-Backend",
+  "version": "1.0.0",
+  "main": "index.js",
+  "repository": "https://github.com/ElectricS01/ElectricS01-Website-Backend.git",
+  "author": "ElectricS01 <103579308+ElectricS01@users.noreply.github.com>",
+  "license": "Better™",
+  "private": true,
+  "dependencies": {
+    "express": "^4.18.2",
+    "mariadb": "^3.0.2",
+    "sequelize": "^6.26.0",
+    "sequelize-cli": "^6.5.2"
+  }
+}
