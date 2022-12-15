@@ -5,10 +5,18 @@ const { Messages } = require("./models")
 const rateLimit = require("express-rate-limit")
 
 const limiter = rateLimit({
-  windowMs: 1 * 10 * 1000,
+  windowMs: 1 * 5 * 1000,
   max: 1,
   standardHeaders: true,
   legacyHeaders: false
+})
+
+app.use(function (req, res, next) {
+  if (req.method === "POST" && !req.headers["X-Validation"]) {
+    limiter(req, res, next)
+  } else {
+    next()
+  }
 })
 
 app.use(express.json())
@@ -23,11 +31,8 @@ app.get("/api/messages", async (req, res) => {
   res.json(messages)
 })
 
-app.post("/api/message", async (req, res) => {
+app.post("/api/message", async (req, res, next) => {
   try {
-    if (!req.header("X-Validation")) {
-      limiter(req, res)
-    }
     if (req.body.messageContents.length < 1 || req.body.userName.length < 1) {
       res.status(500)
       res.json({
