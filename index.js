@@ -2,6 +2,16 @@ const express = require("express")
 const app = express()
 const port = 24555
 const { Messages } = require("./models")
+const rateLimit = require("express-rate-limit")
+
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false
+})
+
+app.use(limiter)
 
 app.use(express.json())
 app.use(
