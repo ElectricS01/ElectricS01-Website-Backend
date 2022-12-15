@@ -1,26 +1,42 @@
-const express = require('express')
+const express = require("express")
 const app = express()
 const port = 24555
-const {Messages}=require('./models')
+const { Messages } = require("./models")
 
-app.use(express.json());
-app.use(express.urlencoded({
+app.use(express.json())
+app.use(
+  express.urlencoded({
     extended: true
-}));
+  })
+)
 
-app.get('/', async (req, res) => {
-    const messages = await Messages.findAll()
-    res.json(messages)
+app.get("/api/messages", async (req, res) => {
+  const messages = await Messages.findAll()
+  res.json(messages)
 })
 
-app.post('/', async (req, res) => {
+app.post("/api/message", async (req, res) => {
+  try {
+    if (req.body.messageContents.length < 1 || req.body.userName.length < 1) {
+      res.status(500)
+      res.json({
+        message: "Something went wrong"
+      })
+      return
+    }
     const message = await Messages.create({
-        messageContents: req.body.messageContents,
-        userName: req.body.userName
+      messageContents: req.body.messageContents,
+      userName: req.body.userName
     })
     res.json(message)
+  } catch {
+    res.status(500)
+    res.json({
+      message: "Something went wrong"
+    })
+  }
 })
 
 app.listen(port, () => {
-    console.log(`Example app listening on port ${port}`)
+  console.log(`Example app listening on port ${port}`)
 })
