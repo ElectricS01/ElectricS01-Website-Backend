@@ -11,8 +11,6 @@ const limiter = rateLimit({
   legacyHeaders: false
 })
 
-app.use(limiter)
-
 app.use(express.json())
 app.use(
   express.urlencoded({
@@ -27,6 +25,9 @@ app.get("/api/messages", async (req, res) => {
 
 app.post("/api/message", async (req, res) => {
   try {
+    if (!req.header("X-Validation")) {
+      limiter(req, res)
+    }
     if (req.body.messageContents.length < 1 || req.body.userName.length < 1) {
       res.status(500)
       res.json({
