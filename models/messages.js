@@ -1,4 +1,3 @@
-import dayjs from 'dayjs';
 "use strict"
 const { Model } = require("sequelize")
 module.exports = (sequelize, DataTypes) => {
@@ -18,7 +17,7 @@ module.exports = (sequelize, DataTypes) => {
       messageContents: DataTypes.STRING,
       createdAt: {
         allowNull: false,
-        type: dayjs(this.date).format('HH:mm:ss DD/MM/YYYY')
+        type: DataTypes.DATE
       },
       updatedAt: {
         allowNull: false,
