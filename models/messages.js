@@ -1,7 +1,6 @@
 import dayjs from 'dayjs';
 "use strict"
 const { Model } = require("sequelize")
-const dayjs = require("dayjs");
 module.exports = (sequelize, DataTypes) => {
   class Messages extends Model {
     /**
