@@ -5,7 +5,7 @@ const { Messages } = require("./models")
 const rateLimit = require("express-rate-limit")
 
 const limiter = rateLimit({
-  windowMs: 1 * 5 * 1000,
+  windowMs: 5 * 1000,
   max: 1,
   standardHeaders: true,
   legacyHeaders: false
