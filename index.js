@@ -64,7 +64,7 @@ app.post("/api/register", async (req, res, next) => {
     ) {
       res.status(500)
       res.json({
-        message: "Something went wrong"
+        message: "Form not complete"
       })
       return
     }
