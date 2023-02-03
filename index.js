@@ -73,7 +73,7 @@ app.post("/api/register", async (req, res, next) => {
       password: await argon2.hash(req.body.password),
       email: req.body.email,
       emailToken: await cryptoRandomString({
-        length: 256
+        length: 128
       })
     })
     res.json(user)
