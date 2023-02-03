@@ -1,5 +1,6 @@
 "use strict"
 const { Model } = require("sequelize")
+const cryptoRandomString = require("crypto-random-string")
 module.exports = (sequelize, DataTypes) => {
   class Users extends Model {
     /**
@@ -14,22 +15,26 @@ module.exports = (sequelize, DataTypes) => {
   Users.init(
     {
       username: {
-        type: DataTypes.STRING
+        type: DataTypes.STRING,
+        unique: true
       },
       email: {
-        type: DataTypes.STRING
+        type: DataTypes.STRING,
+        unique: true
       },
       password: {
         type: DataTypes.STRING
       },
       emailVerified: {
-        type: DataTypes.BOOLEAN
+        type: DataTypes.BOOLEAN,
+        defaultValue: false
       },
       emailToken: {
         type: DataTypes.STRING
       },
       admin: {
-        type: DataTypes.BOOLEAN
+        type: DataTypes.BOOLEAN,
+        defaultValue: false
       },
       createdAt: {
         allowNull: false,

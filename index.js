@@ -1,8 +1,10 @@
 const express = require("express")
 const app = express()
 const port = 24555
-const { Messages } = require("./models")
+const { Messages, Users } = require("./models")
 const rateLimit = require("express-rate-limit")
+const argon2 = require("argon2")
+const cryptoRandomString = require("crypto-random-string")
 
 const limiter = rateLimit({
   windowMs: 5 * 1000,
@@ -45,6 +47,36 @@ app.post("/api/message", async (req, res, next) => {
       userName: req.body.userName
     })
     res.json(message)
+  } catch {
+    res.status(500)
+    res.json({
+      message: "Something went wrong"
+    })
+  }
+})
+
+app.post("/api/register", async (req, res, next) => {
+  try {
+    if (
+      req.body.username.length < 1 ||
+      req.body.password.length < 1 ||
+      req.body.email.length < 1
+    ) {
+      res.status(500)
+      res.json({
+        message: "Something went wrong"
+      })
+      return
+    }
+    const user = await Users.create({
+      username: req.body.username,
+      password: await argon2.hash(req.body.password),
+      email: req.body.email,
+      emailToken: await cryptoRandomString({
+        length: 512
+      })
+    })
+    res.json(user)
   } catch {
     res.status(500)
     res.json({
