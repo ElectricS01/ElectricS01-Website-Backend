@@ -30,7 +30,15 @@ app.use(
 )
 
 app.get("/api/messages", auth, async (req, res) => {
-  const messages = await Messages.findAll()
+  const messages = await Messages.findAll({
+    include: [
+      {
+        model: Users,
+        as: "user",
+        attributes: ["id", "username"]
+      }
+    ]
+  })
   res.json(messages)
 })
 
