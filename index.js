@@ -42,6 +42,10 @@ app.get("/api/messages", auth, async (req, res) => {
   res.json(messages)
 })
 
+app.get("/api/user", auth, async (req, res) => {
+  res.json(req.user)
+})
+
 app.post("/api/message", auth, async (req, res, next) => {
   try {
     if (req.body.messageContents.length < 1) {
