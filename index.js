@@ -46,7 +46,7 @@ app.get("/api/user", auth, async (req, res) => {
   res.json(req.user)
 })
 
-app.post("/api/message", auth, async (req, res, next) => {
+app.post("/api/message", auth, async (req, res) => {
   try {
     if (req.body.messageContents.length < 1) {
       res.status(500)
@@ -68,7 +68,7 @@ app.post("/api/message", auth, async (req, res, next) => {
   }
 })
 
-app.post("/api/register", async (req, res, next) => {
+app.post("/api/register", async (req, res) => {
   try {
     if (
       req.body.username.length < 1 ||
@@ -94,6 +94,24 @@ app.post("/api/register", async (req, res, next) => {
       token: cryptoRandomString({ length: 128 })
     })
     res.json({ token: session.token, ...user })
+  } catch (e) {
+    console.log(e)
+    res.status(500)
+    res.json({
+      message: "Something went wrong"
+    })
+  }
+})
+
+app.post("/api/login", auth, async (req, res) => {
+  try {
+    if (req.body.username.length < 1 || req.body.password.length < 1) {
+      res.status(500)
+      res.json({
+        message: "Form not complete"
+      })
+      return
+    }
   } catch (e) {
     console.log(e)
     res.status(500)
