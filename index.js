@@ -112,6 +112,21 @@ app.post("/api/login", auth, async (req, res) => {
       })
       return
     }
+    const user = await Users.findOne({
+      username: req.body.username
+    })
+    if (!user) return res.status(401).json({ message: "no" })
+    if (!(await argon2.verify(user.password, req.body.password))) {
+      return res.status(401).json({ message: "no" })
+    }
+    const session = await Sessions.create({
+      userId: user.id,
+      token: cryptoRandomString({ length: 128 })
+    })
+    return res.json({
+      token: session.token,
+      user
+    })
   } catch (e) {
     console.log(e)
     res.status(500)
