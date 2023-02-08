@@ -103,7 +103,7 @@ app.post("/api/register", async (req, res) => {
   }
 })
 
-app.post("/api/login", auth, async (req, res) => {
+app.post("/api/login", async (req, res) => {
   try {
     if (req.body.username.length < 1 || req.body.password.length < 1) {
       res.status(500)
