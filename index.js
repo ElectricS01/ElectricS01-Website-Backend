@@ -6,6 +6,8 @@ const rateLimit = require("express-rate-limit")
 const argon2 = require("argon2")
 const cryptoRandomString = require("crypto-random-string")
 const auth = require("./lib/auth")
+const resolveEmbeds = require("./lib/resolveEmbeds")
+const axios = require("axios")
 
 const limiter = rateLimit({
   windowMs: 5 * 1000,
@@ -13,6 +15,52 @@ const limiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false
 })
+
+app.get(
+  [
+    "/api/mediaproxy/:mid/:index/:securityToken",
+    "/api/mediaproxy/:mid/:index/:securityToken.:extension"
+  ],
+  async (req, res, next) => {
+    try {
+      const message = await Messages.findOne({
+        where: {
+          id: req.params.mid
+        }
+      })
+      if (!message) {
+        return res.status(400).json({
+          message: "Failed to embed"
+        })
+      }
+      const embed = message.embeds.find(
+        (e) => e.securityToken === req.params.securityToken
+      )
+      if (!embed) {
+        return res.status(400).json({
+          message: "Failed to embed"
+        })
+      }
+      await axios
+        .get(embed.link, {
+          headers: {
+            "user-agent": "Googlebot/2.1 (+http://www.google.com/bot.html)"
+          },
+          responseType: "arraybuffer"
+        })
+        .then((response) => {
+          res.setHeader("content-type", response.headers["content-type"])
+          res.setHeader("cache-control", "public, max-age=604800")
+          res.end(response.data, "binary")
+        })
+        .catch(() => {
+          res.status(404).end()
+        })
+    } catch (e) {
+      next(e)
+    }
+  }
+)
 
 app.use(function (req, res, next) {
   if (req.method === "POST" && !req.headers["X-Validation"]) {
@@ -60,6 +108,7 @@ app.post("/api/message", auth, async (req, res) => {
       userName: req.user.id
     })
     res.json(message)
+    resolveEmbeds(req, message)
   } catch {
     res.status(500)
     res.json({
@@ -117,7 +166,7 @@ app.post("/api/login", async (req, res) => {
     })
     if (!user) return res.status(401).json({ message: "no" })
     if (!(await argon2.verify(user.password, req.body.password))) {
-      return res.status(401).json({ message: "no" })
+      return res.status(401).json({ message: "bad" })
     }
     const session = await Sessions.create({
       userId: user.id,

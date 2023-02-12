@@ -18,6 +18,7 @@ module.exports = (sequelize, DataTypes) => {
     {
       userName: DataTypes.STRING,
       messageContents: DataTypes.STRING,
+      embeds: DataTypes.JSON,
       createdAt: {
         allowNull: false,
         type: DataTypes.DATE
