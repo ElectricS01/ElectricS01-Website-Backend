@@ -108,7 +108,7 @@ app.post("/api/message", auth, async (req, res) => {
       userName: req.user.id
     })
     res.json(message)
-    resolveEmbeds(req, message)
+    resolveEmbeds(req, message).catch(() => {})
   } catch {
     res.status(500)
     res.json({
