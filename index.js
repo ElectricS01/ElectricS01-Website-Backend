@@ -8,6 +8,7 @@ const cryptoRandomString = require("crypto-random-string")
 const auth = require("./lib/auth")
 const resolveEmbeds = require("./lib/resolveEmbeds")
 const axios = require("axios")
+const config = require(__dirname + "/config/uploadconfig.json")
 
 const limiter = rateLimit({
   windowMs: 5 * 1000,
@@ -183,6 +184,23 @@ app.post("/api/login", async (req, res) => {
       message: "Something went wrong"
     })
   }
+})
+
+app.post("/api/avatar", async (req, res) => {
+  axios
+    .post(config.uploadLink, req.body, {
+      headers: {
+        Authorization: config.apiKey
+      }
+    })
+    .then(async (resp) => {
+      await Users.update({
+        avatar: resp.data.attachment.attachment
+      })
+    })
+    .catch((e) => {
+      console.log(e)
+    })
 })
 
 app.listen(port, () => {
