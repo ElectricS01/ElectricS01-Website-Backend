@@ -43,6 +43,9 @@ module.exports = (sequelize, DataTypes) => {
       avatar: {
         type: DataTypes.STRING
       },
+      description: {
+        type: DataTypes.TEXT
+      },
       createdAt: {
         allowNull: false,
         type: DataTypes.DATE

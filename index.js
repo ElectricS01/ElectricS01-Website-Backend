@@ -95,6 +95,16 @@ app.get("/api/user", auth, async (req, res) => {
   res.json(req.user)
 })
 
+app.get("/api/user/:userId", auth, async (req, res) => {
+  const user = await Users.findOne({
+    where: {
+      id: req.params.userId
+    },
+    attributes: ["username", "avatar", "description"]
+  })
+  res.json(user)
+})
+
 app.post("/api/message", auth, async (req, res) => {
   try {
     if (req.body.messageContents.length < 1) {
