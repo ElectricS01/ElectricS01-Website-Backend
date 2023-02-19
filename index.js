@@ -143,7 +143,7 @@ app.post("/api/register", async (req, res) => {
       userId: user.id,
       token: cryptoRandomString({ length: 128 })
     })
-    res.json({ token: session.token, ...user })
+    res.json({ token: session.token })
   } catch (e) {
     console.log(e)
     res.status(500)
