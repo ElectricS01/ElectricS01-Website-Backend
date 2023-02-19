@@ -108,9 +108,9 @@ app.get("/api/user/:userId", auth, async (req, res) => {
 app.post("/api/message", auth, async (req, res) => {
   try {
     if (req.body.messageContents.length < 1) {
-      res.status(500)
+      res.status(400)
       res.json({
-        message: "Something went wrong"
+        message: "Message too short"
       })
       return
     }
