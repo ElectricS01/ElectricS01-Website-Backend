@@ -84,7 +84,7 @@ app.get("/api/messages", auth, async (req, res) => {
       {
         model: Users,
         as: "user",
-        attributes: ["id", "username"]
+        attributes: ["id", "username", "avatar"]
       }
     ]
   })
