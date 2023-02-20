@@ -100,7 +100,7 @@ app.get("/api/user/:userId", auth, async (req, res) => {
     where: {
       id: req.params.userId
     },
-    attributes: ["username", "avatar", "description"]
+    attributes: ["username", "avatar", "description", "banner"]
   })
   res.json(user)
 })

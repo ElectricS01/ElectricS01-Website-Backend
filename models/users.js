@@ -40,7 +40,11 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.BOOLEAN,
         defaultValue: false
       },
+
       avatar: {
+        type: DataTypes.STRING
+      },
+      banner: {
         type: DataTypes.STRING
       },
       description: {
