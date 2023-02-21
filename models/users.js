@@ -40,7 +40,6 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.BOOLEAN,
         defaultValue: false
       },
-
       avatar: {
         type: DataTypes.STRING
       },
@@ -49,6 +48,18 @@ module.exports = (sequelize, DataTypes) => {
       },
       description: {
         type: DataTypes.TEXT
+      },
+      directMessages: {
+        type: DataTypes.STRING
+      },
+      friendRequests: {
+        type: DataTypes.BOOLEAN
+      },
+      status: {
+        type: DataTypes.STRING
+      },
+      StatusMessage: {
+        type: DataTypes.STRING
       },
       createdAt: {
         allowNull: false,
