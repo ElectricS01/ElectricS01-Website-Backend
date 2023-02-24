@@ -108,7 +108,7 @@ app.get("/api/user/:userId", auth, async (req, res) => {
       "directMessages",
       "friendRequests",
       "status",
-      "StatusMessage"
+      "statusMessage"
     ]
   })
   res.json(user)

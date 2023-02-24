@@ -58,7 +58,7 @@ module.exports = (sequelize, DataTypes) => {
       status: {
         type: DataTypes.STRING
       },
-      StatusMessage: {
+      statusMessage: {
         type: DataTypes.STRING
       },
       createdAt: {
