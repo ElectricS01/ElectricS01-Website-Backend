@@ -92,7 +92,7 @@ app.get("/api/messages", auth, async (req, res) => {
 })
 
 app.get("/api/user", auth, async (req, res) => {
-  res.json(req.user)
+  res.json(req.user.id)
 })
 
 app.get("/api/user/:userId", auth, async (req, res) => {
@@ -101,6 +101,7 @@ app.get("/api/user/:userId", auth, async (req, res) => {
       id: req.params.userId
     },
     attributes: [
+      "id",
       "username",
       "avatar",
       "description",
@@ -184,9 +185,9 @@ app.post("/api/login", async (req, res) => {
     const user = await Users.findOne({
       username: req.body.username
     })
-    if (!user) return res.status(401).json({ message: "no" })
+    if (!user) return res.status(401).json({ message: "Form error" })
     if (!(await argon2.verify(user.password, req.body.password))) {
-      return res.status(401).json({ message: "bad" })
+      return res.status(401).json({ message: "Incorrect password" })
     }
     const session = await Sessions.create({
       userId: user.id,
