@@ -92,7 +92,10 @@ app.get("/api/messages", auth, async (req, res) => {
 })
 
 app.get("/api/user", auth, async (req, res) => {
-  res.json(req.user.id)
+  res.json({
+    id: req.user.id,
+    admin: req.user.admin
+  })
 })
 
 app.get("/api/user/:userId", auth, async (req, res) => {
@@ -221,6 +224,15 @@ app.post("/api/avatar", async (req, res) => {
     .catch((e) => {
       console.log(e)
     })
+})
+
+app.delete("/api/delete/:messageId", auth, async (req, res) => {
+  const where = req.user.admin
+    ? { id: req.params.messageId }
+    : { id: req.params.messageId, userId: req.user.id }
+
+  await Messages.destroy({ where })
+  res.sendStatus(204)
 })
 
 app.listen(port, () => {
