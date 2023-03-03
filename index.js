@@ -229,7 +229,7 @@ app.post("/api/avatar", async (req, res) => {
 app.delete("/api/delete/:messageId", auth, async (req, res) => {
   const where = req.user.admin
     ? { id: req.params.messageId }
-    : { id: req.params.messageId, userId: req.user.id }
+    : { id: req.params.messageId, userName: req.user.id }
 
   await Messages.destroy({ where })
   res.sendStatus(204)
