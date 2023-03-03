@@ -186,7 +186,9 @@ app.post("/api/login", async (req, res) => {
       return
     }
     const user = await Users.findOne({
-      username: req.body.username
+      where: {
+        username: req.body.username
+      }
     })
     if (!user) return res.status(401).json({ message: "Form error" })
     if (!(await argon2.verify(user.password, req.body.password))) {
