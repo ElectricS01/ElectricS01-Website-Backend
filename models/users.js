@@ -9,7 +9,10 @@ module.exports = (sequelize, DataTypes) => {
      * The `models/index` file will call this method automatically.
      */
     static associate(models) {
-      // define association here
+      Users.hasOne(models.Friends, {
+        foreignKey: "friendId",
+        as: "friend"
+      })
     }
   }
   Users.init(
@@ -60,6 +63,12 @@ module.exports = (sequelize, DataTypes) => {
       },
       statusMessage: {
         type: DataTypes.STRING
+      },
+      friendStatus: {
+        type: DataTypes.VIRTUAL,
+        get() {
+          return this.friend?.status
+        }
       },
       createdAt: {
         allowNull: false,
