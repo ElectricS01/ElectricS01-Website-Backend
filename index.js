@@ -327,6 +327,24 @@ app.delete("/api/delete/:messageId", auth, async (req, res) => {
   res.sendStatus(204)
 })
 
+app.patch("/api/edit/:messageId", auth, async (req, res) => {
+  const where = req.params.messageId
+
+  const message = await Messages.findOne({
+    where: {
+      id: where
+    }
+  })
+  if (!message) {
+    return res.status(400)
+  }
+  console.log(req.body.messageContents)
+  await message.update({
+    messageContents: req.body.messageContents
+  })
+  res.sendStatus(204)
+})
+
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`)
 })
