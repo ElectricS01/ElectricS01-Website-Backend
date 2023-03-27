@@ -328,7 +328,7 @@ app.delete("/api/delete/:messageId", auth, async (req, res) => {
 })
 
 app.patch("/api/edit/:messageId", auth, async (req, res) => {
-  const where = req.params.messageId
+  const where = { id: req.params.messageId, userName: req.user.id }
 
   const message = await Messages.findOne({
     where: {
