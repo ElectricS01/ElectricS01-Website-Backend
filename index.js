@@ -67,7 +67,7 @@ app.get(
 )
 
 app.use(function (req, res, next) {
-  if (req.method === "POST" && !req.headers["X-Validation"]) {
+  if (req.method === "POST") {
     limiter(req, res, next)
   } else {
     next()

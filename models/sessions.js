@@ -1,6 +1,5 @@
 "use strict"
 const { Model } = require("sequelize")
-const cryptoRandomString = require("crypto-random-string")
 module.exports = (sequelize, DataTypes) => {
   class Sessions extends Model {
     /**
