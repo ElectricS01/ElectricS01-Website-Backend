@@ -9,7 +9,6 @@ const auth = require("./lib/auth")
 const resolveEmbeds = require("./lib/resolveEmbeds")
 const axios = require("axios")
 const config = require(__dirname + "/config/uploadconfig.json")
-const { Response } = require("express")
 
 const limiter = rateLimit({
   windowMs: 8000,
@@ -176,6 +175,34 @@ app.post("/api/register", async (req, res) => {
       })
       return
     }
+    if (
+      await Users.findOne({
+        where: {
+          username: req.body.username
+        }
+      })
+    ) {
+      res.status(400)
+      res.json({
+        message: "Username is taken"
+      })
+      return
+    }
+    if (
+      await Users.findOne({
+        where: {
+          username: req.body.username
+        }
+      })
+    ) {
+      res.status(400)
+      res.json({
+        message: "Email is taken"
+      })
+      return
+    }
+    if (req.body.username) {
+    }
     const user = await Users.create({
       username: req.body.username,
       password: await argon2.hash(req.body.password),
@@ -227,7 +254,7 @@ app.post("/api/login", async (req, res) => {
   } catch (e) {
     console.log(e)
     res.status(500)
-    res.json({
+    return res.json({
       message: "Something went wrong"
     })
   }
