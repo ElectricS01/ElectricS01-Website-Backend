@@ -148,6 +148,13 @@ app.post("/api/message", auth, async (req, res) => {
       })
       return
     }
+    if (req.body.messageContents.length > 10000) {
+      res.status(400)
+      res.json({
+        message: "Message too long"
+      })
+      return
+    }
     const messageText = req.body.messageContents.trim()
     const replyMessage = req.body?.reply
     if (messageText) {
@@ -402,6 +409,13 @@ app.patch("/api/editStatusMessage", auth, async (req, res) => {
     res.status(400)
     res.json({
       message: "Status has no content"
+    })
+    return
+  }
+  if (statusText.length > 50) {
+    res.status(400)
+    res.json({
+      message: "Status too long"
     })
     return
   }
