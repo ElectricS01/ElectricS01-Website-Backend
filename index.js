@@ -144,16 +144,21 @@ app.post("/api/message", auth, async (req, res) => {
     if (req.body.messageContents.length < 1) {
       res.status(400)
       res.json({
-        message: "Message too short"
+        message: "Message has no content"
       })
       return
     }
-    const message = await Messages.create({
-      messageContents: req.body.messageContents,
-      userName: req.user.id
-    })
-    res.json(message)
-    resolveEmbeds(req, message).catch(() => {})
+    const messageText = req.body.messageContents.trim()
+    const replyMessage = req.body?.reply
+    if (messageText) {
+      const message = await Messages.create({
+        messageContents: messageText,
+        userName: req.user.id,
+        reply: replyMessage
+      })
+      res.json(message)
+      resolveEmbeds(req, message).catch(() => {})
+    }
   } catch {
     res.status(500)
     res.json({
