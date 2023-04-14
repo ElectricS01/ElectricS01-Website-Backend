@@ -94,6 +94,13 @@ app.get("/api/messages", auth, async (req, res) => {
   res.json(messages)
 })
 
+app.get("/api/users", auth, async (req, res) => {
+  const users = await Users.findAll({
+    attributes: ["id", "username", "avatar", "status", "statusMessage"]
+  })
+  res.json(users)
+})
+
 app.get("/api/user", auth, async (req, res) => {
   res.json({
     id: req.user.id,
@@ -328,21 +335,27 @@ app.delete("/api/delete/:messageId", auth, async (req, res) => {
 })
 
 app.patch("/api/edit/:messageId", auth, async (req, res) => {
-  const where = { id: req.params.messageId, userName: req.user.id }
-
+  const messageText = req.body.messageContents.trim()
   const message = await Messages.findOne({
     where: {
-      id: where
+      id: req.params.messageId,
+      userName: req.user.id
     }
   })
-  if (!message) {
-    return res.status(400)
+  if (!message || !messageText) {
+    res.status(400)
+    res.json({
+      message: "Message has no content"
+    })
+    return
   }
-  console.log(req.body.messageContents)
-  await message.update({
-    messageContents: req.body.messageContents
-  })
-  res.sendStatus(204)
+  if (messageText !== message.messageContents) {
+    await message.update({
+      messageContents: messageText,
+      edited: true
+    })
+  }
+  return res.sendStatus(204)
 })
 
 app.listen(port, () => {
