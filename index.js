@@ -9,6 +9,7 @@ const auth = require("./lib/auth")
 const resolveEmbeds = require("./lib/resolveEmbeds")
 const axios = require("axios")
 const config = require(__dirname + "/config/uploadconfig.json")
+const { Response } = require("express")
 
 const limiter = rateLimit({
   windowMs: 8000,
@@ -356,6 +357,28 @@ app.patch("/api/edit/:messageId", auth, async (req, res) => {
     })
   }
   return res.sendStatus(204)
+})
+
+app.patch("/api/editStatusMessage", auth, async (req, res) => {
+  const statusText = req.body.statusMessage.trim()
+  const user = await Users.findOne({
+    where: {
+      id: req.user.id
+    }
+  })
+  if (!user || !statusText) {
+    res.status(400)
+    res.json({
+      message: "Status has no content"
+    })
+    return
+  }
+  if (statusText !== user.statusMessage) {
+    await user.update({
+      statusMessage: statusText
+    })
+  }
+  res.send(user.statusMessage)
 })
 
 app.listen(port, () => {
