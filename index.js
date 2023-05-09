@@ -102,9 +102,11 @@ app.get("/api/users", auth, async (req, res) => {
 })
 
 app.get("/api/user", auth, async (req, res) => {
-  res.json({
-    id: req.user.id,
-    admin: req.user.admin
+    res.json({
+      ...req.user.toJSON(),
+      password: undefined,
+      emailToken: undefined,
+      updatedAt: undefined
   })
 })
 
