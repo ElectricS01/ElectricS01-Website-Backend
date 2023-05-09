@@ -1,15 +1,18 @@
 //Modified from https://github.com/Troplo/Colubrina/blob/main/backend/lib/resolveEmbeds.js
-const { Messages } = require("../models")
+import { Request } from "express"
+import Messages from "../models/messages"
+import { AxiosResponse } from "axios"
 const axios = require("axios")
 const ogs = require("open-graph-scraper")
 const cryptoRandomString = require("crypto-random-string")
 const blacklist = require("./blacklist.json")
-module.exports = async function (req, message) {
+export default async function (req: Request, message: Messages) {
   return new Promise(async (resolve, reject) => {
     try {
       if (message.messageContents) {
         const regex = /(https?:\/\/\S+)/g
-        let links = message.messageContents.match(regex)
+        let links: string[] = message.messageContents.match(regex) || []
+        if (!links?.length) return
         if (links && links.length > 3) {
           links = links.slice(0, 3)
         }
@@ -36,7 +39,7 @@ module.exports = async function (req, message) {
                 "user-agent": "Googlebot/2.1 (+http://www.google.com/bot.html)"
               }
             })
-              .then(({ result }) => {
+              .then(({ result }: any) => {
                 if (result) {
                   embeds.push({
                     openGraph: result,
@@ -53,7 +56,7 @@ module.exports = async function (req, message) {
                         "Googlebot/2.1 (+http://www.google.com/bot.html)"
                     }
                   })
-                  .then((res) => {
+                  .then((res: AxiosResponse) => {
                     // if content type is image
                     if (res.headers["content-type"].startsWith("image/")) {
                       const securityToken = cryptoRandomString({ length: 32 })

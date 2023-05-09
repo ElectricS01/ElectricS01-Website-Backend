@@ -1,0 +1,30 @@
+{
+    "compilerOptions": {
+        "baseUrl": "./",
+        "target": "es2021",
+        "incremental": true,
+        "types": [
+            "node",
+            "@types/sequelize"
+        ],
+        "typeRoots": ["./types"],
+        "module": "commonjs",
+        "moduleResolution": "node",
+        "sourceMap": true,
+        "outDir": "out",
+        "emitDecoratorMetadata": true,
+        "experimentalDecorators": true,
+        "noImplicitAny": true,
+        "noImplicitThis": true,
+        "noFallthroughCasesInSwitch": true,
+        "noUnusedLocals": false,
+        "esModuleInterop": true,
+        "noImplicitReturns": true,
+        "strictNullChecks": true,
+        "strict": true,
+        "resolveJsonModule": true,
+        "paths": {
+            "@app/*": ["./app/*"]
+        }
+    }
+}
