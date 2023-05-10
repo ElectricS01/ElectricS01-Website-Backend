@@ -102,6 +102,22 @@ app.get("/api/users", auth, async (req, res) => {
 })
 
 app.get("/api/user", auth, async (req, res) => {
+  res.json({
+    ...req.user.toJSON(),
+    password: undefined,
+    emailToken: undefined,
+    updatedAt: undefined
+  })
+})
+
+app.get("/api/user/:userId", auth, async (req, res) => {
+  const users = await Users.findAll({
+    attributes: ["id", "username", "avatar", "status", "statusMessage"]
+  })
+  res.json(users)
+})
+
+app.get("/api/user", auth, async (req, res) => {
   if (parseInt(req.params.userId)) {
     const user = await Users.findOne({
       where: {
@@ -137,37 +153,6 @@ app.get("/api/user", auth, async (req, res) => {
       message: "User requested does not exist"
     })
   }
-})
-
-app.get("/api/user/:userId", auth, async (req, res) => {
-  const user = await Users.findOne({
-    where: {
-      id: req.params.userId
-    },
-    attributes: [
-      "id",
-      "username",
-      "avatar",
-      "description",
-      "banner",
-      "directMessages",
-      "friendRequests",
-      "status",
-      "statusMessage",
-      "friendStatus"
-    ],
-    include: [
-      {
-        model: Friends,
-        as: "friend",
-        required: false,
-        where: {
-          userId: req.user.id
-        }
-      }
-    ]
-  })
-  res.json(user)
 })
 
 app.post("/api/message", auth, async (req, res) => {
