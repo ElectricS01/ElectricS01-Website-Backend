@@ -127,34 +127,41 @@ app.get("/api/user", auth, async (req: RequestUser, res: Response) => {
 })
 
 app.get("/api/user/:userId", auth, async (req: RequestUser, res: Response) => {
-  const user = await Users.findOne({
-    where: {
-      id: req.params.userId
-    },
-    attributes: [
-      "id",
-      "username",
-      "avatar",
-      "description",
-      "banner",
-      "directMessages",
-      "friendRequests",
-      "status",
-      "statusMessage"
-    ],
-    include: [
-      {
-        model: Friends,
-        as: "friend",
-        required: false,
-        where: {
-          userId: req.user.id,
-          friendId: parseInt(req.params.userId)
+  if (parseInt(req.params.userId)) {
+    const user = await Users.findOne({
+      where: {
+        id: req.params.userId
+      },
+      attributes: [
+        "id",
+        "username",
+        "avatar",
+        "description",
+        "banner",
+        "directMessages",
+        "friendRequests",
+        "status",
+        "statusMessage"
+      ],
+      include: [
+        {
+          model: Friends,
+          as: "friend",
+          required: false,
+          where: {
+            userId: req.user.id,
+            friendId: parseInt(req.params.userId)
+          }
         }
-      }
-    ]
-  })
-  res.json(user)
+      ]
+    })
+    res.json(user)
+  } else {
+    res.status(400)
+    res.json({
+      message: "User requested does not exist"
+    })
+  }
 })
 
 app.post("/api/message", auth, async (req: RequestUser, res: Response) => {
