@@ -69,6 +69,9 @@ module.exports = (sequelize, DataTypes) => {
           return this.friend?.status
         }
       },
+      showCreated: {
+        type: DataTypes.BOOLEAN
+      },
       createdAt: {
         allowNull: false,
         type: DataTypes.DATE
