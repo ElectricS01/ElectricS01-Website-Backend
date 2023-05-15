@@ -21,7 +21,6 @@ const argon2 = require("argon2")
 const cryptoRandomString = require("crypto-random-string")
 const axios = require("axios")
 import config from "./config/uploadconfig.json"
-import config2 from "./config/config.json"
 
 const app = express()
 const port = 24555
@@ -128,7 +127,7 @@ app.get("/api/user", auth, async (req: RequestUser, res: Response) => {
 
 app.get("/api/user/:userId", auth, async (req: RequestUser, res: Response) => {
   if (parseInt(req.params.userId)) {
-    const user = await Users.findOne({
+    const user: Users | null = await Users.findOne({
       where: {
         id: req.params.userId
       },
@@ -141,7 +140,9 @@ app.get("/api/user/:userId", auth, async (req: RequestUser, res: Response) => {
         "directMessages",
         "friendRequests",
         "status",
-        "statusMessage"
+        "statusMessage",
+        "showCreated",
+        "createdAt"
       ],
       include: [
         {
@@ -155,6 +156,17 @@ app.get("/api/user/:userId", auth, async (req: RequestUser, res: Response) => {
         }
       ]
     })
+
+    if (!user) {
+      res.status(400)
+      res.json({
+        message: "User requested does not exist"
+      })
+      return
+    }
+    if (!user.dataValues.showCreated) {
+      user.dataValues.createdAt = ""
+    }
     res.json(user)
   } else {
     res.status(400)
@@ -244,7 +256,7 @@ app.post("/api/register", async (req: Request, res: Response) => {
       username: req.body.username,
       password: await argon2.hash(req.body.password),
       email: req.body.email,
-      emailToken: await cryptoRandomString({
+      emailToken: cryptoRandomString({
         length: 128
       })
     })
@@ -295,6 +307,69 @@ app.post("/api/login", async (req: Request, res: Response) => {
       message: "Something went wrong"
     })
   }
+})
+
+app.post("/api/reset-email", async (req: Request, res: Response) => {
+  try {
+    if (req.body.email.length < 1) {
+      res.status(500)
+      res.json({
+        message: "Form not complete"
+      })
+      return
+    }
+    const user = await Users.findOne({
+      where: {
+        email: req.body.email
+      }
+    })
+    if (!user) {
+      res.status(401)
+      res.json({
+        message: "Email does not exist"
+      })
+      res.status(500)
+      return res.json({
+        message: "Something went wrong"
+      })
+    }
+    res.status(500)
+    return res.json({
+      message: "e"
+    })
+  } catch (e) {
+    console.log(e)
+    res.status(500)
+    return res.json({
+      message: "Something went wrong"
+    })
+  }
+})
+
+app.post("/api/user-prop", auth, async (req: RequestUser, res: Response) => {
+  const user = await Users.findOne({
+    where: {
+      id: req.user.id
+    }
+  })
+  const properties: string[] = [
+    "directMessages",
+    "friendRequests",
+    "showCreated"
+  ]
+  if (!user || !properties.includes(req.body.prop)) {
+    res.status(400)
+    res.json({
+      message: "No property selected"
+    })
+    return
+  }
+  console.log(req.body.prop)
+  console.log(req.body.val)
+  await user.update({
+    [req.body.prop]: !req.body.val
+  })
+  return res.sendStatus(204)
 })
 
 app.post("/api/avatar", auth, async (req: RequestUser, res: Response) => {

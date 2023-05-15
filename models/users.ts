@@ -58,6 +58,9 @@ export default class Users extends Model {
   @Column(DataType.STRING)
   statusMessage!: string
 
+  @Column(DataType.BOOLEAN)
+  showCreated!: boolean
+
   @HasMany(() => Friends, "friendId")
   friend!: Friends[]
 }
