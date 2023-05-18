@@ -72,6 +72,12 @@ module.exports = (sequelize, DataTypes) => {
       showCreated: {
         type: DataTypes.BOOLEAN
       },
+      tetris: {
+        type: DataTypes.STRING
+      },
+      tonkgame: {
+        type: DataTypes.STRING
+      },
       createdAt: {
         allowNull: false,
         type: DataTypes.DATE
