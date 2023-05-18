@@ -61,6 +61,12 @@ export default class Users extends Model {
   @Column(DataType.BOOLEAN)
   showCreated!: boolean
 
+  @Column(DataType.STRING)
+  tetris!: boolean
+
+  @Column(DataType.STRING)
+  tonkgame!: boolean
+
   @HasMany(() => Friends, "friendId")
   friend!: Friends[]
 }

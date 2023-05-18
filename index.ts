@@ -141,8 +141,10 @@ app.get("/api/user/:userId", auth, async (req: RequestUser, res: Response) => {
         "friendRequests",
         "status",
         "statusMessage",
+        "createdAt",
         "showCreated",
-        "createdAt"
+        "tetris",
+        "tonkgame"
       ],
       include: [
         {
@@ -165,7 +167,8 @@ app.get("/api/user/:userId", auth, async (req: RequestUser, res: Response) => {
       return
     }
     if (!user.dataValues.showCreated) {
-      user.dataValues.createdAt = ""
+      user.dataValues.createdAt = null
+      user.dataValues.showCreated = null
     }
     res.json(user)
   } else {
@@ -203,10 +206,10 @@ app.post("/api/message", auth, async (req: RequestUser, res: Response) => {
       resolveEmbeds(req, message).catch(() => {})
       res.json(message)
     }
-  } catch {
+  } catch (e) {
     res.status(500)
     res.json({
-      message: "Something went wrong"
+      message: "Something went wrong" + e
     })
   }
 })
@@ -545,6 +548,35 @@ app.patch(
     res.send(user.statusMessage)
   }
 )
+
+app.patch("/api/tetris", auth, async (req: RequestUser, res: Response) => {
+  const data = req.body.data.trim()
+  const user = await Users.findOne({
+    where: {
+      id: req.user.id
+    }
+  })
+  if (!user || !data) {
+    res.status(400)
+    res.json({
+      message: "No content"
+    })
+    return
+  }
+  if (data.length > 500) {
+    res.status(400)
+    res.json({
+      message: "Data too long"
+    })
+    return
+  }
+  if (data !== user.tetris) {
+    await user.update({
+      tetris: data
+    })
+  }
+  return res.sendStatus(204)
+})
 
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`)
