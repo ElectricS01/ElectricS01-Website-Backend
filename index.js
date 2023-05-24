@@ -353,8 +353,6 @@ app.post("/api/user-prop", auth, async (req, res) => {
     })
     return
   }
-  console.log(req.body.prop)
-  console.log(req.body.val)
   await user.update({
     [req.body.prop]: req.body.val
   })
@@ -395,11 +393,6 @@ app.post("/api/friend/:userId", auth, async (req, res) => {
       message: "This user does not exist"
     })
   }
-  if (!user.friendRequests) {
-    return res.status(400).json({
-      message: "This user does not accept friend request"
-    })
-  }
   const friend = await Friends.findOne({
     where: {
       userId: req.user.id,
@@ -417,6 +410,10 @@ app.post("/api/friend/:userId", auth, async (req, res) => {
       status: "incoming"
     })
     res.sendStatus(204)
+  } else if (!user.friendRequests && !friend.status) {
+    return res.status(400).json({
+      message: "This user does not accept friend request"
+    })
   } else if (friend.status === "accepted" || friend.status === "pending") {
     await Friends.destroy({
       where: {
