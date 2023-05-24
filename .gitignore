@@ -4,3 +4,4 @@ config/config.json
 config/uploadconfig.json
 .DS_Store
 out
+yarn-error.log

@@ -356,7 +356,7 @@ app.post("/api/user-prop", auth, async (req, res) => {
   console.log(req.body.prop)
   console.log(req.body.val)
   await user.update({
-    [req.body.prop]: !req.body.val
+    [req.body.prop]: req.body.val
   })
   return res.sendStatus(204)
 })
