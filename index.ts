@@ -14,6 +14,7 @@ import Messages from "./models/messages"
 import Users from "./models/users"
 import Sessions from "./models/sessions"
 import Friends from "./models/friends"
+import Feedback from "./models/feedback"
 
 const express = require("express")
 const rateLimit = require("express-rate-limit")
@@ -471,6 +472,38 @@ app.post(
     return res.sendStatus(204)
   }
 )
+
+app.post("/api/feedback", auth, async (req: RequestUser, res: Response) => {
+  if (req.body.feedback.length < 1) {
+    res.status(400)
+    res.json({
+      message: "Feedback has no content"
+    })
+    return
+  }
+  if (req.body.feedback.length > 500) {
+    res.status(400)
+    res.json({
+      message: "Feedback too long"
+    })
+    return
+  }
+  const user = await Users.findOne({
+    where: {
+      id: req.user.id
+    }
+  })
+  if (!user) {
+    return res.status(400).json({
+      message: "This user does not exist"
+    })
+  }
+  await Feedback.create({
+    feedback: req.body.feedback,
+    userID: user.id
+  })
+  return res.sendStatus(204)
+})
 
 app.delete(
   "/api/delete/:messageId",

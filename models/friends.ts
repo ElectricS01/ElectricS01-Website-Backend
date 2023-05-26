@@ -1,11 +1,4 @@
-import {
-  Table,
-  Column,
-  Model,
-  BelongsTo,
-  DataType,
-  AllowNull
-} from "sequelize-typescript"
+import { Table, Column, Model, DataType, BelongsTo } from "sequelize-typescript"
 import Users from "../models/users"
 
 @Table
@@ -16,9 +9,9 @@ export default class Friends extends Model {
   @Column
   friendId!: number
 
-  @AllowNull(false)
   @Column({
     type: DataType.STRING,
+    allowNull: false,
     defaultValue: "pending"
   })
   status!: string
