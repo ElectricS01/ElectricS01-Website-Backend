@@ -1,7 +1,7 @@
 const express = require("express")
 const app = express()
 const port = 24555
-const { Messages, Users, Sessions, Friends } = require("./models")
+const { Messages, Users, Sessions, Friends, Feedback } = require("./models")
 const rateLimit = require("express-rate-limit")
 const argon2 = require("argon2")
 const cryptoRandomString = require("crypto-random-string")
@@ -449,6 +449,27 @@ app.post("/api/friend/:userId", auth, async (req, res) => {
     )
     res.sendStatus(204)
   }
+})
+
+app.post("/api/feedback", async (req, res) => {
+  if (req.body.feedback.length < 1) {
+    res.status(400)
+    res.json({
+      message: "Feedback has no content"
+    })
+    return
+  }
+  if (req.body.feedback.length > 500) {
+    res.status(400)
+    res.json({
+      message: "Feedback too long"
+    })
+    return
+  }
+  await Feedback.create({
+    feedback: req.body.feedback
+  })
+  res.sendStatus(204)
 })
 
 app.delete("/api/delete/:messageId", auth, async (req, res) => {
