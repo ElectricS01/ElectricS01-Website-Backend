@@ -180,6 +180,23 @@ app.get("/api/user/:userId", auth, async (req: RequestUser, res: Response) => {
   }
 })
 
+app.get("/api/admin", auth, async (req: RequestUser, res: Response) => {
+  const user = await Users.findOne({
+    where: {
+      id: req.user.id
+    }
+  })
+  if (!user || !user.admin) {
+    res.status(403)
+    res.json({
+      message: "Forbidden"
+    })
+    return
+  }
+  const feedback = await Feedback.findAll({})
+  res.json(feedback)
+})
+
 app.post("/api/message", auth, async (req: RequestUser, res: Response) => {
   try {
     if (req.body.messageContents.length < 1) {
@@ -515,6 +532,41 @@ app.delete(
 
     await Messages.destroy({ where })
     res.sendStatus(204)
+  }
+)
+
+app.delete(
+  "/api/delete-feedback/:feedbackId",
+  auth,
+  async (req: RequestUser, res: Response) => {
+    if (!req.user.admin) {
+      res.status(403)
+      res.json({
+        message: "Forbidden"
+      })
+      return
+    }
+    console.log(req.params.feedbackId)
+    if (!req.params.feedbackId) {
+      res.status(400)
+      res.json({
+        message: "Feedback does not exist"
+      })
+      return
+    }
+    const feedback = await Feedback.findOne({
+      where: {
+        id: req.params.feedbackId
+      }
+    })
+    if (!feedback) {
+      res.status(400)
+      res.json({
+        message: "Feedback does not exist"
+      })
+      return
+    }
+    await feedback.destroy()
   }
 )
 
