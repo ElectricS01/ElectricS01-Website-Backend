@@ -101,6 +101,13 @@ app.get("/api/users", auth, async (req, res) => {
   res.json(users)
 })
 
+app.get("/api/users", auth, async (req, res) => {
+  const users = await Users.findAll({
+    attributes: ["id", "username", "avatar", "status", "statusMessage"]
+  })
+  res.json(users)
+})
+
 app.get("/api/user", auth, async (req, res) => {
   res.json({
     ...req.user.toJSON(),
@@ -111,13 +118,6 @@ app.get("/api/user", auth, async (req, res) => {
 })
 
 app.get("/api/user/:userId", auth, async (req, res) => {
-  const users = await Users.findAll({
-    attributes: ["id", "username", "avatar", "status", "statusMessage"]
-  })
-  res.json(users)
-})
-
-app.get("/api/user", auth, async (req, res) => {
   if (parseInt(req.params.userId)) {
     const user = await Users.findOne({
       where: {
@@ -133,6 +133,7 @@ app.get("/api/user", auth, async (req, res) => {
         "friendRequests",
         "status",
         "statusMessage",
+        "createdAt",
         "showCreated",
         "tetris",
         "tonkgame"
@@ -149,6 +150,7 @@ app.get("/api/user", auth, async (req, res) => {
         }
       ]
     })
+
     if (!user) {
       res.status(400)
       res.json({
@@ -167,6 +169,23 @@ app.get("/api/user", auth, async (req, res) => {
       message: "User requested does not exist"
     })
   }
+})
+
+app.get("/api/admin", auth, async (req, res) => {
+  const user = await Users.findOne({
+    where: {
+      id: req.user.id
+    }
+  })
+  if (!user || !user.admin) {
+    res.status(403)
+    res.json({
+      message: "Forbidden"
+    })
+    return
+  }
+  const feedback = await Feedback.findAll({})
+  res.json(feedback)
 })
 
 app.post("/api/message", auth, async (req, res) => {
@@ -451,7 +470,7 @@ app.post("/api/friend/:userId", auth, async (req, res) => {
   }
 })
 
-app.post("/api/feedback", async (req, res) => {
+app.post("/api/feedback", auth, async (req, res) => {
   if (req.body.feedback.length < 1) {
     res.status(400)
     res.json({
@@ -466,10 +485,21 @@ app.post("/api/feedback", async (req, res) => {
     })
     return
   }
-  await Feedback.create({
-    feedback: req.body.feedback
+  const user = await Users.findOne({
+    where: {
+      id: req.user.id
+    }
   })
-  res.sendStatus(204)
+  if (!user) {
+    return res.status(400).json({
+      message: "This user does not exist"
+    })
+  }
+  await Feedback.create({
+    feedback: req.body.feedback,
+    userID: user.id
+  })
+  return res.sendStatus(204)
 })
 
 app.delete("/api/delete/:messageId", auth, async (req, res) => {
@@ -479,6 +509,37 @@ app.delete("/api/delete/:messageId", auth, async (req, res) => {
 
   await Messages.destroy({ where })
   res.sendStatus(204)
+})
+
+app.delete("/api/delete-feedback/:feedbackId", auth, async (req, res) => {
+  if (!req.user.admin) {
+    res.status(403)
+    res.json({
+      message: "Forbidden"
+    })
+    return
+  }
+  console.log(req.params.feedbackId)
+  if (!req.params.feedbackId) {
+    res.status(400)
+    res.json({
+      message: "Feedback does not exist"
+    })
+    return
+  }
+  const feedback = await Feedback.findOne({
+    where: {
+      id: req.params.feedbackId
+    }
+  })
+  if (!feedback) {
+    res.status(400)
+    res.json({
+      message: "Feedback does not exist"
+    })
+    return
+  }
+  await feedback.destroy()
 })
 
 app.patch("/api/edit/:messageId", auth, async (req, res) => {

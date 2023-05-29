@@ -24,6 +24,7 @@ module.exports = (sequelize, DataTypes) => {
       friendId: DataTypes.INTEGER,
       status: {
         type: DataTypes.STRING,
+        allowNull: false,
         defaultValue: "pending"
       },
       createdAt: DataTypes.DATE,

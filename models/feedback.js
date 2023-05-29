@@ -17,11 +17,11 @@ module.exports = (sequelize, DataTypes) => {
   Feedback.init(
     {
       userID: {
-        type: Sequelize.INTEGER,
+        type: DataTypes.INTEGER,
         allowNull: false
       },
       feedback: {
-        type: Sequelize.STRING,
+        type: DataTypes.STRING,
         allowNull: false
       },
       createdAt: {
@@ -35,7 +35,8 @@ module.exports = (sequelize, DataTypes) => {
     },
     {
       sequelize,
-      modelName: "Feedback"
+      modelName: "Feedback",
+      freezeTableName: true
     }
   )
   return Feedback
