@@ -212,8 +212,20 @@ app.post("/api/message", auth, async (req, res) => {
         userName: req.user.id,
         reply: replyMessage
       })
-      res.json(message)
-      resolveEmbeds(req, message).catch(() => {})
+      resolveEmbeds(req, message)
+        .then(async () => {
+          const messages = await Messages.findAll({
+            include: [
+              {
+                model: Users,
+                as: "user",
+                attributes: ["id", "username", "avatar"]
+              }
+            ]
+          })
+          res.json(messages)
+        })
+        .catch(async () => {})
     }
   } catch (e) {
     res.status(500)
@@ -562,8 +574,21 @@ app.patch("/api/edit/:messageId", auth, async (req, res) => {
       messageContents: messageText,
       edited: true
     })
+    resolveEmbeds(req, message)
+      .then(async () => {
+        const messages = await Messages.findAll({
+          include: [
+            {
+              model: Users,
+              as: "user",
+              attributes: ["id", "username", "avatar"]
+            }
+          ]
+        })
+        res.json(messages)
+      })
+      .catch(async () => {})
   }
-  return res.sendStatus(204)
 })
 
 app.patch("/api/editStatusMessage", auth, async (req, res) => {
