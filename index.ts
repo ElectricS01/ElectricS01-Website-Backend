@@ -221,8 +221,20 @@ app.post("/api/message", auth, async (req: RequestUser, res: Response) => {
         userName: req.user.id,
         reply: replyMessage
       })
-      resolveEmbeds(req, message).catch(() => {})
-      res.json(message)
+      resolveEmbeds(req, message)
+        .then(async () => {
+          const messages = await Messages.findAll({
+            include: [
+              {
+                model: Users,
+                as: "user",
+                attributes: ["id", "username", "avatar"]
+              }
+            ]
+          })
+          res.json(messages)
+        })
+        .catch(async () => {})
     }
   } catch (e) {
     res.status(500)
@@ -593,8 +605,21 @@ app.patch(
         messageContents: messageText,
         edited: true
       })
+      resolveEmbeds(req, message)
+        .then(async () => {
+          const messages = await Messages.findAll({
+            include: [
+              {
+                model: Users,
+                as: "user",
+                attributes: ["id", "username", "avatar"]
+              }
+            ]
+          })
+          res.json(messages)
+        })
+        .catch(async () => {})
     }
-    return res.sendStatus(204)
   }
 )
 

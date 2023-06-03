@@ -77,20 +77,18 @@ export default async function (req: Request, message: Messages) {
                   .catch(() => {})
               })
           }
-          await Messages.update(
-            {
-              embeds: embeds
-            },
-            {
-              where: {
-                id: message.id
-              }
-            }
-          )
-          resolve(embeds)
-        } else {
-          reject()
         }
+        await Messages.update(
+          {
+            embeds: embeds
+          },
+          {
+            where: {
+              id: message.id
+            }
+          }
+        )
+        resolve(embeds)
       } else {
         reject()
       }
