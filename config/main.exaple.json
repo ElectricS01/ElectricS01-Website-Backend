@@ -1,0 +1,9 @@
+{
+  "apiKey": "example",
+  "uploadLink": "https://example.com",
+  "emailService": "",
+  "emailUsername": "",
+  "emailPassword": "",
+  "emailPort": "",
+  "emailSecure": ""
+}

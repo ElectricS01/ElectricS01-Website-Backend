@@ -1,7 +1,7 @@
 node_modules
 .idea
 config/config.json
-config/uploadconfig.json
+config/main.json
 .DS_Store
 out
 yarn-error.log

@@ -7,9 +7,11 @@ const argon2 = require("argon2")
 const cryptoRandomString = require("crypto-random-string")
 const auth = require("./lib/auth")
 const resolveEmbeds = require("./lib/resolveEmbeds")
+const nodemailerLibrary = require("./lib/mailer")
 const axios = require("axios")
-const config = require(__dirname + "/config/uploadconfig.json")
+const config = require(__dirname + "/config/main.json")
 
+const emailLibrary = new nodemailerLibrary()
 const limiter = rateLimit({
   windowMs: 8000,
   max: 2,
@@ -264,7 +266,7 @@ app.post("/api/register", async (req, res) => {
     if (
       await Users.findOne({
         where: {
-          username: req.body.username
+          email: req.body.email
         }
       })
     ) {
@@ -274,8 +276,6 @@ app.post("/api/register", async (req, res) => {
       })
       return
     }
-    if (req.body.username) {
-    }
     const user = await Users.create({
       username: req.body.username,
       password: await argon2.hash(req.body.password),
@@ -284,6 +284,20 @@ app.post("/api/register", async (req, res) => {
         length: 128
       })
     })
+    emailLibrary
+      .sendEmail(
+        "support@electrics01.com",
+        req.body.email,
+        "Hi " + user.username + ", Verify your email address",
+        "Hi " +
+          user.username +
+          ",\nPlease click the link below to verify your email address:\nhttps://electrics01.com/verify?token=" +
+          user.emailToken +
+          "\n\nIf you did not request this email, please ignore it.\n\nThanks,\nElectrics01 Support Team"
+      )
+      .catch((error) => {
+        console.log("Error occurred while sending email:", error)
+      })
     const session = await Sessions.create({
       userId: user.id,
       token: cryptoRandomString({ length: 128 })
@@ -510,6 +524,71 @@ app.post("/api/feedback", auth, async (req, res) => {
   await Feedback.create({
     feedback: req.body.feedback,
     userID: user.id
+  })
+  return res.sendStatus(204)
+})
+
+app.post("/api/resend-verification", auth, async (req, res) => {
+  const user = await Users.findOne({
+    where: {
+      id: req.user.id
+    }
+  })
+  if (!user) {
+    return res.status(400).json({
+      message: "This user does not exist"
+    })
+  }
+  if (!user.emailToken || user.emailVerified) {
+    return res.status(400).json({
+      message: "Account is already verified"
+    })
+  }
+  await user.update({
+    emailToken: cryptoRandomString({
+      length: 128
+    })
+  })
+  emailLibrary
+    .sendEmail(
+      "support@electrics01.com",
+      user.email,
+      "Hi " + user.username + ", Verify your email address",
+      "Hi " +
+        user.username +
+        ",\nPlease click the link below to verify your email address:\nhttps://electrics01.com/verify?token=" +
+        user.emailToken +
+        "\n\nIf you did not request this email, please ignore it.\n\nThanks,\nElectrics01 Support Team"
+    )
+    .catch((error) => {
+      console.log("Error occurred while sending email:", error)
+    })
+})
+
+app.post("/api/verify", auth, async (req, res) => {
+  const user = await Users.findOne({
+    where: {
+      id: req.user.id
+    }
+  })
+  if (!user) {
+    return res.status(400).json({
+      message: "This user does not exist"
+    })
+  }
+  if (!user.emailToken || user.emailVerified) {
+    return res.status(400).json({
+      message: "Account is already verified"
+    })
+  }
+  if (user.emailToken !== req.body.token) {
+    return res.status(401).json({
+      message: "Token invalid"
+    })
+  }
+  await user.update({
+    emailVerified: true,
+    emailToken: false
   })
   return res.sendStatus(204)
 })
