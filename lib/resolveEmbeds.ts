@@ -12,7 +12,6 @@ export default async function (req: Request, message: Messages) {
       if (message.messageContents) {
         const regex = /(https?:\/\/\S+)/g
         let links: string[] = message.messageContents.match(regex) || []
-        if (!links?.length) return
         if (links && links.length > 3) {
           links = links.slice(0, 3)
         }
