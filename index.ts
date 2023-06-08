@@ -1,11 +1,9 @@
 import "reflect-metadata"
 import sequelize from "./db"
-sequelize
-
 import { Embed } from "./types/embeds"
 import { RequestUser } from "./types/express"
 
-import { Request, Response, NextFunction } from "express"
+import { NextFunction, Request, Response } from "express"
 import { AxiosError, AxiosResponse } from "axios"
 
 import auth from "./lib/auth"
@@ -16,13 +14,16 @@ import Users from "./models/users"
 import Sessions from "./models/sessions"
 import Friends from "./models/friends"
 import Feedback from "./models/feedback"
+import config from "./config/main.json"
+import Chats from "./models/chats"
+
+sequelize
 
 const express = require("express")
 const rateLimit = require("express-rate-limit")
 const argon2 = require("argon2")
 const cryptoRandomString = require("crypto-random-string")
 const axios = require("axios")
-import config from "./config/main.json"
 
 const app = express()
 const port = 24555
@@ -99,8 +100,14 @@ app.use(
   })
 )
 
-app.get("/api/messages", auth, async (req: Request, res: Response) => {
+app.get("/api/messages/:chatId", auth, async (req: Request, res: Response) => {
+  if (!req.params.chatId) {
+    return res.status(400).json({
+      message: "Missing chatId"
+    })
+  }
   const messages = await Messages.findAll({
+    where: { chatId: req.params.chatId },
     include: [
       {
         model: Users,
@@ -109,7 +116,33 @@ app.get("/api/messages", auth, async (req: Request, res: Response) => {
       }
     ]
   })
-  res.json(messages)
+  return res.json(messages)
+})
+
+app.get("/api/chat/:chatId", auth, async (req: Request, res: Response) => {
+  const chat = await Chats.findOne({
+    where: {
+      id: req.params.chatId
+    }
+  })
+  if (!chat) {
+    res.status(400)
+    res.json({
+      message: "Chat does not exist"
+    })
+    return
+  }
+  chat.dataValues.messages = await Messages.findAll({
+    where: { chatId: req.params.chatId },
+    include: [
+      {
+        model: Users,
+        as: "user",
+        attributes: ["id", "username", "avatar"]
+      }
+    ]
+  })
+  return res.json(chat)
 })
 
 app.get("/api/users", auth, async (req: Request, res: Response) => {
@@ -117,6 +150,13 @@ app.get("/api/users", auth, async (req: Request, res: Response) => {
     attributes: ["id", "username", "avatar", "status", "statusMessage"]
   })
   res.json(users)
+})
+
+app.get("/api/chats", auth, async (req: Request, res: Response) => {
+  const chats = await Chats.findAll({
+    attributes: ["id", "name", "description", "icon", "owner", "latest"]
+  })
+  res.json(chats)
 })
 
 app.get("/api/user", auth, async (req: RequestUser, res: Response) => {
@@ -215,28 +255,62 @@ app.post("/api/message", auth, async (req: RequestUser, res: Response) => {
       })
       return
     }
+    if (!req.body.chatId) {
+      res.status(400)
+      res.json({
+        message: "Chat not specified"
+      })
+      return
+    }
+    const chat = await Chats.findOne({
+      where: {
+        id: req.body.chatId
+      }
+    })
+    if (!chat) {
+      res.status(400)
+      res.json({
+        message: "Chat does not exist"
+      })
+      return
+    }
+    if (chat.requireVerification && !req.user.emailVerified) {
+      res.status(400)
+      res.json({
+        message: "User not verified"
+      })
+      return
+    }
     const messageText = req.body.messageContents.trim()
     const replyMessage = req.body?.reply
     if (messageText) {
       const message = await Messages.create({
         messageContents: messageText,
         userName: req.user.id,
-        reply: replyMessage
+        reply: replyMessage,
+        chatId: req.body.chatId
       })
-      resolveEmbeds(req, message)
-        .then(async () => {
-          const messages = await Messages.findAll({
-            include: [
-              {
-                model: Users,
-                as: "user",
-                attributes: ["id", "username", "avatar"]
-              }
-            ]
-          })
-          res.json(messages)
-        })
-        .catch(async () => {})
+      resolveEmbeds(req, message).catch(async () => {})
+      await chat.update({
+        latest: Date.now()
+      })
+      console.log("test")
+      chat.dataValues.messages = await Messages.findAll({
+        where: { chatId: req.body.chatId },
+        include: [
+          {
+            model: Users,
+            as: "user",
+            attributes: ["id", "username", "avatar"]
+          }
+        ]
+      })
+      console.log("test")
+      const chats = await Chats.findAll({
+        attributes: ["id", "name", "description", "icon", "owner", "latest"]
+      })
+      const data = { chat, chats }
+      res.json(data)
     }
   } catch (e) {
     res.status(500)
@@ -244,6 +318,57 @@ app.post("/api/message", auth, async (req: RequestUser, res: Response) => {
       message: "Something went wrong" + e
     })
   }
+})
+
+app.post("/api/create-chat", auth, async (req: RequestUser, res: Response) => {
+  if (!req.body.name) {
+    res.status(400)
+    res.json({
+      message: "Chat name not specified"
+    })
+    return
+  }
+  if (typeof req.body.requireVerification !== "boolean") {
+    res.status(400)
+    res.json({
+      message: "requireVerification not specified"
+    })
+    return
+  }
+  if (req.body.name.length > 30) {
+    res.status(400)
+    res.json({
+      message: "Chat name too long"
+    })
+    return
+  }
+  if (req.body.description.length > 500) {
+    res.status(400)
+    res.json({
+      message: "Chat description too long"
+    })
+    return
+  }
+  if (!req.user.admin) {
+    res.status(403)
+    res.json({
+      message: "Forbidden"
+    })
+    return
+  }
+  const chat = await Chats.create({
+    name: req.body.name,
+    description: req.body.description,
+    icon: req.body.icon,
+    owner: req.user.id,
+    requireVerification: req.body.requireVerification,
+    latest: Date.now()
+  })
+  const chats = await Chats.findAll({
+    attributes: ["id", "name", "description", "icon", "owner", "latest"]
+  })
+  let data = { chat, chats }
+  res.json(data)
 })
 
 app.post("/api/register", async (req: Request, res: Response) => {
@@ -622,12 +747,68 @@ app.delete(
   "/api/delete/:messageId",
   auth,
   async (req: RequestUser, res: Response) => {
+    const message = await Messages.findOne({
+      where: {
+        id: req.params.messageId
+      }
+    })
+    if (!message) {
+      res.status(400)
+      res.json({
+        message: "Message does not exist"
+      })
+      return
+    }
     const where = req.user.admin
       ? { id: req.params.messageId }
       : { id: req.params.messageId, userName: req.user.id }
-
     await Messages.destroy({ where })
-    res.sendStatus(204)
+    const messages = await Messages.findAll({
+      where: { chatId: message.chatId },
+      include: [
+        {
+          model: Users,
+          as: "user",
+          attributes: ["id", "username", "avatar"]
+        }
+      ]
+    })
+    res.json(messages)
+  }
+)
+
+app.delete(
+  "/api/delete-chat/:chatId",
+  auth,
+  async (req: RequestUser, res: Response) => {
+    const chat = await Chats.findOne({
+      where: {
+        id: req.params.chatId
+      }
+    })
+    if (!chat) {
+      res.status(400)
+      res.json({
+        message: "Chat does not exist"
+      })
+      return
+    }
+    if (!req.user.admin || chat.owner !== req.user.id) {
+      res.status(403)
+      res.json({
+        message: "Forbidden"
+      })
+      return
+    }
+    await Chats.destroy({
+      where: {
+        id: req.params.chatId
+      }
+    })
+    const chats = await Chats.findAll({
+      attributes: ["id", "name", "description", "icon", "owner", "latest"]
+    })
+    res.json(chats)
   }
 )
 
@@ -692,6 +873,7 @@ app.patch(
       resolveEmbeds(req, message)
         .then(async () => {
           const messages = await Messages.findAll({
+            where: { chatId: message.chatId },
             include: [
               {
                 model: Users,

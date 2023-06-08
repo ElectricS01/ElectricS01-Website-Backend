@@ -27,6 +27,9 @@ export default class Messages extends Model {
   @Column(DataType.INTEGER)
   reply!: number
 
+  @Column(DataType.INTEGER)
+  chatId!: number
+
   @BelongsTo(() => Users)
   user!: Users
 }
