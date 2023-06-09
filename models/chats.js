@@ -1,27 +1,43 @@
 "use strict"
 const { Model } = require("sequelize")
 module.exports = (sequelize, DataTypes) => {
-  class Feedback extends Model {
+  class Chats extends Model {
     /**
      * Helper method for defining associations.
      * This method is not a part of Sequelize lifecycle.
      * The `models/index` file will call this method automatically.
      */
     static associate(models) {
-      Feedback.belongsTo(models.Users, {
+      Chats.belongsTo(models.Users, {
         as: "user",
-        foreignKey: "userId"
+        foreignKey: "owner"
       })
     }
   }
-  Feedback.init(
+  Chats.init(
     {
-      userID: {
+      name: {
+        type: DataTypes.STRING,
+        allowNull: false
+      },
+      description: {
+        type: DataTypes.STRING,
+        allowNull: false
+      },
+      icon: {
+        type: DataTypes.STRING,
+        allowNull: false
+      },
+      owner: {
         type: DataTypes.INTEGER,
         allowNull: false
       },
-      feedback: {
-        type: DataTypes.STRING,
+      requireVerification: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false
+      },
+      latest: {
+        type: DataTypes.DATE,
         allowNull: false
       },
       createdAt: {
@@ -35,9 +51,8 @@ module.exports = (sequelize, DataTypes) => {
     },
     {
       sequelize,
-      modelName: "Feedback",
-      freezeTableName: true
+      modelName: "Chats"
     }
   )
-  return Feedback
+  return Chats
 }

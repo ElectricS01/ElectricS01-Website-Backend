@@ -16,11 +16,12 @@ module.exports = (sequelize, DataTypes) => {
   }
   Messages.init(
     {
-      userName: DataTypes.STRING,
-      messageContents: DataTypes.STRING,
-      embeds: DataTypes.JSON,
-      edited: DataTypes.BOOLEAN,
-      reply: DataTypes.INTEGER,
+      userName: { type: DataTypes.STRING },
+      messageContents: { type: DataTypes.STRING },
+      embeds: { type: DataTypes.JSON },
+      edited: { type: DataTypes.BOOLEAN },
+      reply: { type: DataTypes.INTEGER },
+      chatId: { type: DataTypes.INTEGER },
       createdAt: {
         allowNull: false,
         type: DataTypes.DATE
