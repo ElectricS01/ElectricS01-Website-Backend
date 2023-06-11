@@ -335,6 +335,13 @@ app.post("/api/create-chat", auth, async (req: RequestUser, res: Response) => {
     })
     return
   }
+  if (!req.body.icon.match(/(https?:\/\/\S+)/g)) {
+    res.status(400)
+    res.json({
+      message: "Icon is not a valid URL"
+    })
+    return
+  }
   if (req.body.name.length > 30) {
     res.status(400)
     res.json({
