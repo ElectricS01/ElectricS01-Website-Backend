@@ -17,7 +17,7 @@ module.exports = (sequelize, DataTypes) => {
   Messages.init(
     {
       userName: { type: DataTypes.STRING },
-      messageContents: { type: DataTypes.STRING },
+      messageContents: { type: DataTypes.TEXT },
       embeds: { type: DataTypes.JSON },
       edited: { type: DataTypes.BOOLEAN },
       reply: { type: DataTypes.INTEGER },

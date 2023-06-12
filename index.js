@@ -166,57 +166,58 @@ app.get("/api/user", auth, async (req, res) => {
 })
 
 app.get("/api/user/:userId", auth, async (req, res) => {
-  if (parseInt(req.params.userId)) {
-    const user = await Users.findOne({
-      where: {
-        id: req.params.userId
-      },
-      attributes: [
-        "id",
-        "username",
-        "avatar",
-        "description",
-        "banner",
-        "directMessages",
-        "friendRequests",
-        "status",
-        "statusMessage",
-        "createdAt",
-        "showCreated",
-        "tetris",
-        "tonkgame"
-      ],
-      include: [
-        {
-          model: Friends,
-          as: "friend",
-          required: false,
-          where: {
-            userId: req.user.id,
-            friendId: parseInt(req.params.userId)
-          }
-        }
-      ]
-    })
-
-    if (!user) {
-      res.status(400)
-      res.json({
-        message: "User requested does not exist"
-      })
-      return
-    }
-    if (!user.dataValues.showCreated) {
-      user.dataValues.createdAt = null
-      user.dataValues.showCreated = null
-    }
-    res.json(user)
-  } else {
+  if (!parseInt(req.params.userId)) {
     res.status(400)
     res.json({
       message: "User requested does not exist"
     })
+    return
   }
+  const user = await Users.findOne({
+    where: {
+      id: req.params.userId
+    },
+    attributes: [
+      "id",
+      "username",
+      "avatar",
+      "description",
+      "banner",
+      "directMessages",
+      "friendRequests",
+      "status",
+      "statusMessage",
+      "createdAt",
+      "showCreated",
+      "tetris",
+      "tonkgame"
+    ],
+    include: [
+      {
+        model: Friends,
+        as: "friend",
+        required: false,
+        where: {
+          userId: req.user.id,
+          friendId: parseInt(req.params.userId)
+        },
+        attributes: ["status"]
+      }
+    ]
+  })
+
+  if (!user) {
+    res.status(400)
+    res.json({
+      message: "User requested does not exist"
+    })
+    return
+  }
+  if (!user.dataValues.showCreated) {
+    user.dataValues.createdAt = null
+    user.dataValues.showCreated = null
+  }
+  res.json(user)
 })
 
 app.get("/api/admin", auth, async (req, res) => {
@@ -291,7 +292,6 @@ app.post("/api/message", auth, async (req, res) => {
       await chat.update({
         latest: Date.now()
       })
-      console.log("test")
       chat.dataValues.messages = await Messages.findAll({
         where: { chatId: req.body.chatId },
         include: [
@@ -302,7 +302,6 @@ app.post("/api/message", auth, async (req, res) => {
           }
         ]
       })
-      console.log("test")
       const chats = await Chats.findAll({
         attributes: ["id", "name", "description", "icon", "owner", "latest"]
       })
@@ -332,7 +331,7 @@ app.post("/api/create-chat", auth, async (req, res) => {
     })
     return
   }
-  if (!req.body.icon.match(/(https?:\/\/\S+)/g)) {
+  if (req.body.icon && !req.body.icon.match(/(https?:\/\/\S+)/g)) {
     res.status(400)
     res.json({
       message: "Icon is not a valid URL"
@@ -801,7 +800,6 @@ app.delete("/api/delete-feedback/:feedbackId", auth, async (req, res) => {
     })
     return
   }
-  console.log(req.params.feedbackId)
   if (!req.params.feedbackId) {
     res.status(400)
     res.json({
