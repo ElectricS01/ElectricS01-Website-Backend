@@ -48,9 +48,9 @@
   integrity sha512-m7X9U6BG2+J+R1lSOdCiITLLrxm+cWlNI3HUFA92oLO77ObGNzaKdh8pMLqdZcshtkKuV84olNNXDfMc4FezBQ==
 
 "@sindresorhus/is@^5.2.0":
-  version "5.4.0"
-  resolved "https://registry.yarnpkg.com/@sindresorhus/is/-/is-5.4.0.tgz#b1bfbd6024311ade045093b424536cefcc8e3a42"
-  integrity sha512-Ggh6E9AnMpiNXlbXfFUcWE9qm408rL8jDi7+PMBBx7TMbwEmiqAiSmZ+zydYwxcJLqPGNDoLc9mXDuMDBZg0sA==
+  version "5.4.1"
+  resolved "https://registry.yarnpkg.com/@sindresorhus/is/-/is-5.4.1.tgz#c4383ce702fb90531c3d310506bab89e70427c53"
+  integrity sha512-axlrvsHlHlFmKKMEg4VyvMzFr93JWJj4eIfXY1STVuO2fsImCa7ncaiG5gC8HKOX590AW5RtRsC41/B+OfrSqw==
 
 "@szmarczak/http-timer@^5.0.1":
   version "5.0.1"
@@ -164,9 +164,9 @@
   integrity sha512-iiUgKzV9AuaEkZqkOLDIvlQiL6ltuZd9tGcW3gwpnX8JbuiuhFlEGmmFXEXkN50Cvq7Os88IY2v0dkDqXYWVgA==
 
 "@types/node@*":
-  version "20.2.5"
-  resolved "https://registry.yarnpkg.com/@types/node/-/node-20.2.5.tgz#26d295f3570323b2837d322180dfbf1ba156fefb"
-  integrity sha512-JJulVEQXmiY9Px5axXHeYGLSjhkZEnD+MDPDGbCbIAbMslkKwmygtZFy1X6s/075Yo94sf8GuSlFfPzysQrWZQ==
+  version "20.3.0"
+  resolved "https://registry.yarnpkg.com/@types/node/-/node-20.3.0.tgz#719498898d5defab83c3560f45d8498f58d11938"
+  integrity sha512-cumHmIAf6On83X7yP+LrsEyUOf/YlociZelmpRYaGFydoaPdxdt80MAbu6vWerQT2COCp2nPvHdsbD7tHn/YlQ==
 
 "@types/node@^17.0.45":
   version "17.0.45"
@@ -687,9 +687,9 @@ domutils@^3.0.1:
     domhandler "^5.0.3"
 
 dottie@^2.0.2:
-  version "2.0.3"
-  resolved "https://registry.yarnpkg.com/dottie/-/dottie-2.0.3.tgz#797a4f4c92a9a65499806be4051b9d9dcd5a5d77"
-  integrity sha512-4liA0PuRkZWQFQjwBypdxPfZaRWiv5tkhMXY2hzsa2pNf5s7U3m9cwUchfNKe8wZQxdGPQQzO6Rm2uGe0rvohQ==
+  version "2.0.4"
+  resolved "https://registry.yarnpkg.com/dottie/-/dottie-2.0.4.tgz#9ce42965f45e577a6fa7d988d47852fac70c4e82"
+  integrity sha512-iz64WUOmp/ECQhWMJjTWFzJN/wQ7RJ5v/a6A2OiCwjaGCpNo66WGIjlSf+IULO9DQd0b4cFawLOTbiKSrpKodw==
 
 editorconfig@^0.15.3:
   version "0.15.3"
@@ -1721,9 +1721,9 @@ send@0.18.0:
     statuses "2.0.1"
 
 sequelize-cli@^6.5.2:
-  version "6.6.0"
-  resolved "https://registry.yarnpkg.com/sequelize-cli/-/sequelize-cli-6.6.0.tgz#f11588c93b53321637f8aedd5b10ed57d6d06482"
-  integrity sha512-FwTClhGRvXKanFRHMZbgfXOBV8UC2B3VkE0WOdW1n39/36PF4lWyurF95f246une/V4eaO3a7/Ywvy++3r+Jmg==
+  version "6.6.1"
+  resolved "https://registry.yarnpkg.com/sequelize-cli/-/sequelize-cli-6.6.1.tgz#ab86fc8de79f56bf1d1c4e3bbb1104aee4a5eaf4"
+  integrity sha512-C3qRpy1twBsFa855qOQFSYWer8ngiaZP05/OAsT1QCUwtc6UxVNNiQ0CGUt98T9T1gi5D3TGWL6le8HWUKELyw==
   dependencies:
     cli-color "^2.0.3"
     fs-extra "^9.1.0"
