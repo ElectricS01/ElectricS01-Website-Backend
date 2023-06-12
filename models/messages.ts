@@ -15,7 +15,7 @@ export default class Messages extends Model {
   @Column(DataType.STRING)
   userName!: string
 
-  @Column(DataType.STRING)
+  @Column(DataType.TEXT)
   messageContents!: string
 
   @Column(DataType.JSON)

@@ -169,57 +169,58 @@ app.get("/api/user", auth, async (req: RequestUser, res: Response) => {
 })
 
 app.get("/api/user/:userId", auth, async (req: RequestUser, res: Response) => {
-  if (parseInt(req.params.userId)) {
-    const user: Users | null = await Users.findOne({
-      where: {
-        id: req.params.userId
-      },
-      attributes: [
-        "id",
-        "username",
-        "avatar",
-        "description",
-        "banner",
-        "directMessages",
-        "friendRequests",
-        "status",
-        "statusMessage",
-        "createdAt",
-        "showCreated",
-        "tetris",
-        "tonkgame"
-      ],
-      include: [
-        {
-          model: Friends,
-          as: "friend",
-          required: false,
-          where: {
-            userId: req.user.id,
-            friendId: parseInt(req.params.userId)
-          }
-        }
-      ]
-    })
-
-    if (!user) {
-      res.status(400)
-      res.json({
-        message: "User requested does not exist"
-      })
-      return
-    }
-    if (!user.dataValues.showCreated) {
-      user.dataValues.createdAt = null
-      user.dataValues.showCreated = null
-    }
-    res.json(user)
-  } else {
+  if (!parseInt(req.params.userId)) {
     res.status(400)
     res.json({
       message: "User requested does not exist"
     })
+    return
   }
+  const user: Users | null = await Users.findOne({
+    where: {
+      id: req.params.userId
+    },
+    attributes: [
+      "id",
+      "username",
+      "avatar",
+      "description",
+      "banner",
+      "directMessages",
+      "friendRequests",
+      "status",
+      "statusMessage",
+      "createdAt",
+      "showCreated",
+      "tetris",
+      "tonkgame"
+    ],
+    include: [
+      {
+        model: Friends,
+        as: "friend",
+        required: false,
+        where: {
+          userId: req.user.id,
+          friendId: parseInt(req.params.userId)
+        },
+        attributes: ["status"]
+      }
+    ]
+  })
+
+  if (!user) {
+    res.status(400)
+    res.json({
+      message: "User requested does not exist"
+    })
+    return
+  }
+  if (!user.dataValues.showCreated) {
+    user.dataValues.createdAt = null
+    user.dataValues.showCreated = null
+  }
+  res.json(user)
 })
 
 app.get("/api/admin", auth, async (req: RequestUser, res: Response) => {
@@ -294,7 +295,6 @@ app.post("/api/message", auth, async (req: RequestUser, res: Response) => {
       await chat.update({
         latest: Date.now()
       })
-      console.log("test")
       chat.dataValues.messages = await Messages.findAll({
         where: { chatId: req.body.chatId },
         include: [
@@ -305,7 +305,6 @@ app.post("/api/message", auth, async (req: RequestUser, res: Response) => {
           }
         ]
       })
-      console.log("test")
       const chats = await Chats.findAll({
         attributes: ["id", "name", "description", "icon", "owner", "latest"]
       })
@@ -335,7 +334,7 @@ app.post("/api/create-chat", auth, async (req: RequestUser, res: Response) => {
     })
     return
   }
-  if (!req.body.icon.match(/(https?:\/\/\S+)/g)) {
+  if (req.body.icon && !req.body.icon.match(/(https?:\/\/\S+)/g)) {
     res.status(400)
     res.json({
       message: "Icon is not a valid URL"
@@ -830,7 +829,6 @@ app.delete(
       })
       return
     }
-    console.log(req.params.feedbackId)
     if (!req.params.feedbackId) {
       res.status(400)
       res.json({
