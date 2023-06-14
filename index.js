@@ -151,7 +151,15 @@ app.get("/api/users", auth, async (req, res) => {
 
 app.get("/api/chats", auth, async (req, res) => {
   const chats = await Chats.findAll({
-    attributes: ["id", "name", "description", "icon", "owner", "latest"]
+    attributes: [
+      "id",
+      "name",
+      "description",
+      "icon",
+      "owner",
+      "requireVerification",
+      "latest"
+    ]
   })
   res.json(chats)
 })
@@ -303,7 +311,15 @@ app.post("/api/message", auth, async (req, res) => {
         ]
       })
       const chats = await Chats.findAll({
-        attributes: ["id", "name", "description", "icon", "owner", "latest"]
+        attributes: [
+          "id",
+          "name",
+          "description",
+          "icon",
+          "owner",
+          "requireVerification",
+          "latest"
+        ]
       })
       const data = { chat, chats }
       res.json(data)
@@ -328,6 +344,13 @@ app.post("/api/create-chat", auth, async (req, res) => {
     res.status(400)
     res.json({
       message: "requireVerification not specified"
+    })
+    return
+  }
+  if (req.body.requireVerification === true && !req.user.emailVerified) {
+    res.status(400)
+    res.json({
+      message: "You are not verified"
     })
     return
   }
@@ -368,7 +391,15 @@ app.post("/api/create-chat", auth, async (req, res) => {
     latest: Date.now()
   })
   const chats = await Chats.findAll({
-    attributes: ["id", "name", "description", "icon", "owner", "latest"]
+    attributes: [
+      "id",
+      "name",
+      "description",
+      "icon",
+      "owner",
+      "requireVerification",
+      "latest"
+    ]
   })
   let data = { chat, chats }
   res.json(data)
@@ -774,6 +805,13 @@ app.delete("/api/delete-chat/:chatId", auth, async (req, res) => {
     })
     return
   }
+  if (chat.id === 1) {
+    res.status(400)
+    res.json({
+      message: "Cannot delete this chat"
+    })
+    return
+  }
   if (!req.user.admin || chat.owner !== req.user.id) {
     res.status(403)
     res.json({
@@ -786,10 +824,24 @@ app.delete("/api/delete-chat/:chatId", auth, async (req, res) => {
       id: req.params.chatId
     }
   })
-  const chats = await Chats.findAll({
-    attributes: ["id", "name", "description", "icon", "owner", "latest"]
+  await Messages.destroy({
+    where: {
+      chatId: req.params.chatId
+    }
   })
-  res.json(chats)
+  const chats = await Chats.findAll({
+    attributes: [
+      "id",
+      "name",
+      "description",
+      "icon",
+      "owner",
+      "requireVerification",
+      "latest"
+    ]
+  })
+  const data = { chat, chats }
+  res.json(data)
 })
 
 app.delete("/api/delete-feedback/:feedbackId", auth, async (req, res) => {
@@ -915,6 +967,89 @@ app.patch("/api/tetris", auth, async (req, res) => {
     })
   }
   return res.sendStatus(204)
+})
+
+app.patch("/api/edit-chat/:chat", auth, async (req, res) => {
+  const chat = await Chats.findOne({
+    where: {
+      id: req.params.chat
+    }
+  })
+  if (!chat) {
+    res.status(400)
+    res.json({
+      message: "Chat does not exist"
+    })
+    return
+  }
+  if (chat.owner !== req.user.id) {
+    res.status(403)
+    res.json({
+      message: "Forbidden"
+    })
+    return
+  }
+  if (!req.body.name) {
+    res.status(400)
+    res.json({
+      message: "Chat name not specified"
+    })
+    return
+  }
+  if (typeof req.body.requireVerification !== "boolean") {
+    res.status(400)
+    res.json({
+      message: "requireVerification not specified"
+    })
+    return
+  }
+  if (req.body.requireVerification === true && !req.user.emailVerified) {
+    res.status(400)
+    res.json({
+      message: "You are not verified"
+    })
+    return
+  }
+  if (req.body.icon && !req.body.icon.match(/(https?:\/\/\S+)/g)) {
+    res.status(400)
+    res.json({
+      message: "Icon is not a valid URL"
+    })
+    return
+  }
+  if (req.body.name.length > 30) {
+    res.status(400)
+    res.json({
+      message: "Chat name too long"
+    })
+    return
+  }
+  if (req.body.description.length > 500) {
+    res.status(400)
+    res.json({
+      message: "Chat description too long"
+    })
+    return
+  }
+  await chat.update({
+    name: req.body.name,
+    description: req.body.description,
+    icon: req.body.icon,
+    requireVerification: req.body.requireVerification
+  })
+  const chats = await Chats.findAll({
+    attributes: [
+      "id",
+      "name",
+      "description",
+      "icon",
+      "owner",
+      "requireVerification",
+      "latest"
+    ]
+  })
+  const data = { chat, chats }
+  res.json(data)
 })
 
 app.listen(port, () => {
