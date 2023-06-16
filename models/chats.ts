@@ -3,9 +3,12 @@ import {
   DataType,
   Column,
   Table,
-  ForeignKey
+  ForeignKey,
+  BelongsTo,
+  HasMany
 } from "sequelize-typescript"
 import Users from "./users"
+import ChatAssociations from "./chatAssociations"
 
 @Table
 export default class Chats extends Model {
@@ -39,4 +42,20 @@ export default class Chats extends Model {
     allowNull: false
   })
   latest!: boolean
+
+  @Column({
+    allowNull: false,
+    type: DataType.INTEGER,
+    defaultValue: 0
+  })
+  type!: number
+
+  @HasMany(() => ChatAssociations)
+  associations!: ChatAssociations[]
+
+  @BelongsTo(() => Users, {
+    foreignKey: "owner",
+    as: "ownerDetails" // Provide the alias used in the association
+  })
+  ownerDetails!: Users
 }
