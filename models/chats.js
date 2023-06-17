@@ -1,5 +1,7 @@
 "use strict"
 const { Model } = require("sequelize")
+const Users = require("./users")
+const ChatAssociations = require("./chatAssociations")
 module.exports = (sequelize, DataTypes) => {
   class Chats extends Model {
     /**
@@ -8,9 +10,13 @@ module.exports = (sequelize, DataTypes) => {
      * The `models/index` file will call this method automatically.
      */
     static associate(models) {
+      Chats.hasMany(models.ChatAssociations, {
+        foreignKey: "chatId",
+        as: "associations"
+      })
       Chats.belongsTo(models.Users, {
-        as: "user",
-        foreignKey: "owner"
+        foreignKey: "owner",
+        as: "ownerDetails"
       })
     }
   }
@@ -21,15 +27,18 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false
       },
       description: {
-        type: DataTypes.STRING,
-        allowNull: false
+        type: DataTypes.STRING
       },
       icon: {
         type: DataTypes.STRING
       },
       owner: {
         type: DataTypes.INTEGER,
-        allowNull: false
+        allowNull: false,
+        references: {
+          model: Users,
+          key: "id"
+        }
       },
       requireVerification: {
         type: DataTypes.BOOLEAN,
@@ -39,13 +48,10 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.DATE,
         allowNull: false
       },
-      createdAt: {
-        type: DataTypes.DATE,
-        allowNull: false
-      },
-      updatedAt: {
-        type: DataTypes.DATE,
-        allowNull: false
+      type: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0
       }
     },
     {
