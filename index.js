@@ -212,13 +212,6 @@ app.get("/api/users", auth, async (req, res) => {
   res.json(users)
 })
 
-app.get("/api/users", auth, async (req, res) => {
-  const users = await Users.findAll({
-    attributes: ["id", "username", "avatar", "status", "statusMessage"]
-  })
-  res.json(users)
-})
-
 app.get("/api/chats", auth, async (req, res) => {
   getChats(req.user.id).then((chats) => {
     res.json(chats)
@@ -849,7 +842,7 @@ app.post("/api/direct-message/:userId", auth, async (req, res) => {
     })
     return
   }
-  const chat =
+  const currentChat =
     (await Chats.findOne({
       where: {
         owner: req.user.id,
@@ -862,16 +855,12 @@ app.post("/api/direct-message/:userId", auth, async (req, res) => {
         name: req.user.username
       }
     }))
-  if (chat) {
-    getChat(chat.id).then((chat) => {
-      if (chat) {
-        console.log(chat)
-        return res.json(chat)
-      } else {
-        return res.status(400).json({
-          message: "Chat does not exist"
-        })
-      }
+  if (currentChat) {
+    getChat(currentChat.id).then((chat) => {
+      getChats(req.user.id).then((chats) => {
+        const data = { chat, chats }
+        res.json(data)
+      })
     })
   } else {
     const otherUser = await Users.findOne({
@@ -886,7 +875,7 @@ app.post("/api/direct-message/:userId", auth, async (req, res) => {
       })
       return
     }
-    const newChat = await Chats.create({
+    const createChat = await Chats.create({
       name: otherUser.username,
       owner: req.user.id,
       requireVerification: false,
@@ -894,16 +883,19 @@ app.post("/api/direct-message/:userId", auth, async (req, res) => {
       type: 1
     })
     await ChatAssociations.create({
-      chatId: newChat.id,
+      chatId: createChat.id,
       userId: req.user.id
     })
     await ChatAssociations.create({
-      chatId: newChat.id,
+      chatId: createChat.id,
       userId: req.params.userId
     })
-    const chatsE = getChats(req.user.id)
-    const data = { newChat, chatsE }
-    res.json(data)
+    getChat(createChat.id).then((chat) => {
+      getChats(req.user.id).then((chats) => {
+        const data = { chat, chats }
+        res.json(data)
+      })
+    })
   }
 })
 
@@ -938,26 +930,26 @@ app.delete("/api/delete/:messageId", auth, async (req, res) => {
 })
 
 app.delete("/api/delete-chat/:chatId", auth, async (req, res) => {
-  const chat = await Chats.findOne({
+  const currentChat = await Chats.findOne({
     where: {
       id: req.params.chatId
     }
   })
-  if (!chat) {
+  if (!currentChat) {
     res.status(400)
     res.json({
       message: "Chat does not exist"
     })
     return
   }
-  if (chat.id === 1) {
+  if (currentChat.id === 1) {
     res.status(400)
     res.json({
       message: "Cannot delete this chat"
     })
     return
   }
-  if (chat.owner !== req.user.id) {
+  if (currentChat.owner !== req.user.id) {
     res.status(403)
     res.json({
       message: "Forbidden"
@@ -979,9 +971,12 @@ app.delete("/api/delete-chat/:chatId", auth, async (req, res) => {
       chatId: req.params.chatId
     }
   })
-  getChats(req.user.id).then((chats) => {
-    const data = { chat, chats }
-    res.json(data)
+  getChat(1).then((chat) => {
+    console.log(chat)
+    getChats(req.user.id).then((chats) => {
+      const data = { chat, chats }
+      res.json(data)
+    })
   })
 })
 
@@ -1052,7 +1047,7 @@ app.patch("/api/edit/:messageId", auth, async (req, res) => {
   }
 })
 
-app.patch("/api/editStatusMessage", auth, async (req, res) => {
+app.patch("/api/edit-status-message", auth, async (req, res) => {
   const statusText = req.body.statusMessage.trim()
   const user = await Users.findOne({
     where: {
@@ -1078,7 +1073,14 @@ app.patch("/api/editStatusMessage", auth, async (req, res) => {
       statusMessage: statusText
     })
   }
-  res.send(user.statusMessage)
+  const users = await Users.findAll({
+    attributes: ["id", "username", "avatar", "status", "statusMessage"]
+  })
+  const data = {
+    users,
+    statusMessage: user.statusMessage
+  }
+  res.json(data)
 })
 
 app.patch("/api/tetris", auth, async (req, res) => {
