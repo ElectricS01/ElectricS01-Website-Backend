@@ -868,7 +868,7 @@ app.post(
       })
       return
     }
-    const chat =
+    const currentChat =
       (await Chats.findOne({
         where: {
           owner: req.user.id,
@@ -881,16 +881,12 @@ app.post(
           name: req.user.username
         }
       }))
-    if (chat) {
-      getChat(chat.id).then((chat) => {
-        if (chat) {
-          console.log(chat)
-          return res.json(chat)
-        } else {
-          return res.status(400).json({
-            message: "Chat does not exist"
-          })
-        }
+    if (currentChat) {
+      getChat(currentChat.id).then((chat) => {
+        getChats(req.user.id).then((chats) => {
+          const data = { chat, chats }
+          res.json(data)
+        })
       })
     } else {
       const otherUser = await Users.findOne({
@@ -905,7 +901,7 @@ app.post(
         })
         return
       }
-      const newChat = await Chats.create({
+      const createChat = await Chats.create({
         name: otherUser.username,
         owner: req.user.id,
         requireVerification: false,
@@ -913,16 +909,19 @@ app.post(
         type: 1
       })
       await ChatAssociations.create({
-        chatId: newChat.id,
+        chatId: createChat.id,
         userId: req.user.id
       })
       await ChatAssociations.create({
-        chatId: newChat.id,
+        chatId: createChat.id,
         userId: req.params.userId
       })
-      const chatsE = getChats(req.user.id)
-      const data = { newChat, chatsE }
-      res.json(data)
+      getChat(createChat.id).then((chat) => {
+        getChats(req.user.id).then((chats) => {
+          const data = { chat, chats }
+          res.json(data)
+        })
+      })
     }
   }
 )
@@ -965,26 +964,26 @@ app.delete(
   "/api/delete-chat/:chatId",
   auth,
   async (req: RequestUser, res: Response) => {
-    const chat = await Chats.findOne({
+    const currentChat = await Chats.findOne({
       where: {
         id: req.params.chatId
       }
     })
-    if (!chat) {
+    if (!currentChat) {
       res.status(400)
       res.json({
         message: "Chat does not exist"
       })
       return
     }
-    if (chat.id === 1) {
+    if (currentChat.id === 1) {
       res.status(400)
       res.json({
         message: "Cannot delete this chat"
       })
       return
     }
-    if (chat.owner !== req.user.id) {
+    if (currentChat.owner !== req.user.id) {
       res.status(403)
       res.json({
         message: "Forbidden"
@@ -1006,9 +1005,12 @@ app.delete(
         chatId: req.params.chatId
       }
     })
-    getChats(req.user.id).then((chats) => {
-      const data = { chat, chats }
-      res.json(data)
+    getChat("1").then((chat) => {
+      console.log(chat)
+      getChats(req.user.id).then((chats) => {
+        const data = { chat, chats }
+        res.json(data)
+      })
     })
   }
 )
@@ -1090,7 +1092,7 @@ app.patch(
 )
 
 app.patch(
-  "/api/editStatusMessage",
+  "/api/edit-status-message",
   auth,
   async (req: RequestUser, res: Response) => {
     const statusText = req.body.statusMessage.trim()
@@ -1118,7 +1120,14 @@ app.patch(
         statusMessage: statusText
       })
     }
-    res.send(user.statusMessage)
+    const users = await Users.findAll({
+      attributes: ["id", "username", "avatar", "status", "statusMessage"]
+    })
+    const data = {
+      users,
+      statusMessage: user.statusMessage
+    }
+    res.json(data)
   }
 )
 
