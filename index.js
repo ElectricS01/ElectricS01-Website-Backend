@@ -21,8 +21,8 @@ const config = require(__dirname + "/config/main.json")
 
 const emailLibrary = new nodemailerLibrary()
 const limiter = rateLimit({
-  windowMs: 8000,
-  max: 2,
+  windowMs: 5000,
+  max: 3,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -91,7 +91,7 @@ async function getChats(userId) {
       {
         model: Users,
         as: "ownerDetails",
-        attributes: ["id", "username"]
+        attributes: ["id", "username", "avatar"]
       }
     ]
   })
@@ -111,6 +111,18 @@ async function getChats(userId) {
     }
   })
   return [...chats1, ...chats2]
+}
+
+async function checkImage(url) {
+  try {
+    const response = await axios.head(url)
+    const contentType = response.headers["content-type"]
+    return contentType.startsWith("image/")
+  } catch (error) {
+    // Handle request error (e.g., URL is invalid or inaccessible)
+    console.error("Error occurred:", error.message)
+    return false
+  }
 }
 
 app.get(
@@ -611,13 +623,28 @@ app.post("/api/user-prop", auth, async (req, res) => {
       id: req.user.id
     }
   })
-  const properties = ["directMessages", "friendRequests", "showCreated"]
+  const properties = [
+    "directMessages",
+    "friendRequests",
+    "showCreated",
+    "avatar"
+  ]
   if (!user || !properties.includes(req.body.prop)) {
     res.status(400)
     res.json({
       message: "No property selected"
     })
     return
+  }
+  if (
+    (req.body.prop === "avatar" &&
+      req.body.val &&
+      !(await checkImage(req.body.val))) ||
+    (req.body.prop === "avatar" && !req.body.val)
+  ) {
+    return res.status(400).json({
+      message: "Invalid image"
+    })
   }
   await user.update({
     [req.body.prop]: req.body.val
@@ -877,6 +904,7 @@ app.post("/api/direct-message/:userId", auth, async (req, res) => {
     }
     const createChat = await Chats.create({
       name: otherUser.username,
+      icon: otherUser.avatar,
       owner: req.user.id,
       requireVerification: false,
       latest: Date.now(),
