@@ -635,7 +635,9 @@ app.post("/api/user-prop", auth, async (req: RequestUser, res: Response) => {
     "directMessages",
     "friendRequests",
     "showCreated",
-    "avatar"
+    "avatar",
+    "description",
+    "banner"
   ]
   if (!user || !properties.includes(req.body.prop)) {
     res.status(400)
@@ -645,10 +647,13 @@ app.post("/api/user-prop", auth, async (req: RequestUser, res: Response) => {
     return
   }
   if (
-    (req.body.prop === "avatar" &&
+    ((req.body.prop === "avatar" || req.body.prop === "banner") &&
       req.body.val &&
       !(await checkImage(req.body.val))) ||
-    (req.body.prop === "avatar" && !req.body.val)
+    ((req.body.prop === "avatar" ||
+      req.body.prop === "banner" ||
+      req.body.prop === "description") &&
+      !req.body.val)
   ) {
     return res.status(400).json({
       message: "Invalid image"
