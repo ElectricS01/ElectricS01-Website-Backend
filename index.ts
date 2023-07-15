@@ -472,9 +472,17 @@ app.post("/api/create-chat", auth, async (req: RequestUser, res: Response) => {
     requireVerification: req.body.requireVerification,
     latest: Date.now()
   })
-  getChats(req.user.id).then((chats) => {
-    const data = { chat, chats }
-    res.json(data)
+  await Messages.destroy({
+    where: {
+      chatId: req.params.chatId
+    }
+  })
+  getChat("1").then((chat) => {
+    console.log(chat)
+    getChats(req.user.id).then((chats) => {
+      const data = { chat, chats }
+      res.json(data)
+    })
   })
 })
 
