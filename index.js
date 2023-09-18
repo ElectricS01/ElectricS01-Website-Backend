@@ -79,7 +79,8 @@ async function getChats(userId) {
       "owner",
       "requireVerification",
       "latest",
-      "type"
+      "type",
+      "allowInvite"
     ],
     include: [
       {
@@ -104,7 +105,8 @@ async function getChats(userId) {
       "owner",
       "requireVerification",
       "latest",
-      "type"
+      "type",
+      "allowInvite"
     ],
     where: {
       type: 2
@@ -217,7 +219,7 @@ app.get("/api/chat/:chatId", auth, async (req, res) => {
   })
 })
 
-app.get("/api/users", auth, async (req, res) => {
+app.get("/api/users", auth, async (res) => {
   const users = await Users.findAll({
     attributes: ["id", "username", "avatar", "status", "statusMessage"]
   })
@@ -467,7 +469,7 @@ app.post("/api/create-chat", auth, async (req, res) => {
   await ChatAssociations.create({
     chatId: chat.id,
     userId: req.user.id,
-    type: "admin"
+    type: "Owner"
   })
   getChat(chat.id).then((chat) => {
     getChats(req.user.id).then((chats) => {
@@ -1012,7 +1014,6 @@ app.delete("/api/delete-chat/:chatId", auth, async (req, res) => {
     }
   })
   getChat(1).then((chat) => {
-    console.log(chat)
     getChats(req.user.id).then((chats) => {
       const data = { chat, chats }
       res.json(data)
@@ -1220,6 +1221,33 @@ app.patch("/api/edit-chat/:chat", auth, async (req, res) => {
     icon: req.body.icon,
     requireVerification: req.body.requireVerification
   })
+  chat.dataValues.messages = await Messages.findAll({
+    where: { chatId: req.params.chat },
+    include: [
+      {
+        model: Users,
+        as: "user",
+        attributes: ["id", "username", "avatar"]
+      }
+    ]
+  })
+  const chatAssociations = await ChatAssociations.findAll({
+    where: { chatId: req.params.chat },
+    include: [
+      {
+        model: Users,
+        as: "user",
+        attributes: ["id", "username", "avatar", "status", "statusMessage"]
+      }
+    ]
+  })
+  let users = chatAssociations.map((association) => association.user)
+  if (users.length === 0) {
+    users = users = await Users.findAll({
+      attributes: ["id", "username", "avatar", "status", "statusMessage"]
+    })
+  }
+  chat.dataValues.users = users
   getChats(req.user.id).then((chats) => {
     const data = { chat, chats }
     res.json(data)

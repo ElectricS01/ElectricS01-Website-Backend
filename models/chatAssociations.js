@@ -32,6 +32,11 @@ module.exports = (sequelize, DataTypes) => {
           model: Chats,
           key: "id"
         }
+      },
+      type: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        defaultValue: "Member"
       }
     },
     {
