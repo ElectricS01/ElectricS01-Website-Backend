@@ -30,4 +30,10 @@ export default class ChatAssociations extends Model {
 
   @BelongsTo(() => Chats, "chatId")
   chat!: Chats
+
+  @Column({
+    type: DataType.STRING,
+    allowNull: false
+  })
+  type!: number
 }

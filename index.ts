@@ -89,7 +89,8 @@ async function getChats(userId: number) {
       "owner",
       "requireVerification",
       "latest",
-      "type"
+      "type",
+      "allowInvite"
     ],
     include: [
       {
@@ -112,7 +113,8 @@ async function getChats(userId: number) {
       "owner",
       "requireVerification",
       "latest",
-      "type"
+      "type",
+      "allowInvite"
     ],
     where: {
       type: 2
@@ -225,7 +227,7 @@ app.get("/api/chat/:chatId", auth, async (req: Request, res: Response) => {
   })
 })
 
-app.get("/api/users", auth, async (req: Request, res: Response) => {
+app.get("/api/users", auth, async (res: Response) => {
   const users = await Users.findAll({
     attributes: ["id", "username", "avatar", "status", "statusMessage"]
   })
@@ -472,13 +474,12 @@ app.post("/api/create-chat", auth, async (req: RequestUser, res: Response) => {
     requireVerification: req.body.requireVerification,
     latest: Date.now()
   })
-  await Messages.destroy({
-    where: {
-      chatId: req.params.chatId
-    }
+  await ChatAssociations.create({
+    chatId: chat.id,
+    userId: chat.owner,
+    type: "Owner"
   })
   getChat("1").then((chat) => {
-    console.log(chat)
     getChats(req.user.id).then((chats) => {
       const data = { chat, chats }
       res.json(data)
@@ -1043,7 +1044,6 @@ app.delete(
       }
     })
     getChat("1").then((chat) => {
-      console.log(chat)
       getChats(req.user.id).then((chats) => {
         const data = { chat, chats }
         res.json(data)
@@ -1268,6 +1268,33 @@ app.patch(
       icon: req.body.icon,
       requireVerification: req.body.requireVerification
     })
+    chat.dataValues.messages = await Messages.findAll({
+      where: { chatId: req.params.chat },
+      include: [
+        {
+          model: Users,
+          as: "user",
+          attributes: ["id", "username", "avatar"]
+        }
+      ]
+    })
+    const chatAssociations = await ChatAssociations.findAll({
+      where: { chatId: req.params.chat },
+      include: [
+        {
+          model: Users,
+          as: "user",
+          attributes: ["id", "username", "avatar", "status", "statusMessage"]
+        }
+      ]
+    })
+    let users = chatAssociations.map((association) => association.user)
+    if (users.length === 0) {
+      users = users = await Users.findAll({
+        attributes: ["id", "username", "avatar", "status", "statusMessage"]
+      })
+    }
+    chat.dataValues.users = users
     getChats(req.user.id).then((chats) => {
       const data = { chat, chats }
       res.json(data)

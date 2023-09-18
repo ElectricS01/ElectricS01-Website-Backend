@@ -58,4 +58,11 @@ export default class Chats extends Model {
     as: "ownerDetails" // Provide the alias used in the association
   })
   ownerDetails!: Users
+
+  @Column({
+    allowNull: false,
+    type: DataType.STRING,
+    defaultValue: "Member"
+  })
+  allowInvite!: string
 }
