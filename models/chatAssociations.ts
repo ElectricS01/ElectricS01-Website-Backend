@@ -33,7 +33,8 @@ export default class ChatAssociations extends Model {
 
   @Column({
     type: DataType.STRING,
-    allowNull: false
+    allowNull: false,
+    defaultValue: "Member"
   })
   type!: number
 }
