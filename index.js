@@ -30,7 +30,7 @@ const limiter = rateLimit({
   }
 })
 
-async function getChat(chatId) {
+async function getChat(chatId, userId) {
   const chat = await Chats.findOne({
     where: {
       id: chatId
@@ -55,14 +55,39 @@ async function getChat(chatId) {
       {
         model: Users,
         as: "user",
-        attributes: ["id", "username", "avatar", "status", "statusMessage"]
+        attributes: [
+          "id",
+          "username",
+          "avatar",
+          "status",
+          "statusMessage",
+          "friendRequests"
+        ]
       }
     ]
   })
   let users = chatAssociations.map((association) => association.user)
   if (users.length === 0) {
     users = users = await Users.findAll({
-      attributes: ["id", "username", "avatar", "status", "statusMessage"]
+      attributes: [
+        "id",
+        "username",
+        "avatar",
+        "status",
+        "statusMessage",
+        "friendRequests"
+      ],
+      include: [
+        {
+          model: Friends,
+          as: "friend",
+          required: false,
+          where: {
+            userId: userId
+          },
+          attributes: ["status"]
+        }
+      ]
     })
   }
   chat.dataValues.users = users
@@ -208,7 +233,7 @@ app.get("/api/messages/:chatId", auth, async (req, res) => {
 })
 
 app.get("/api/chat/:chatId", auth, async (req, res) => {
-  await getChat(req.params.chatId).then((chat) => {
+  await getChat(req.params.chatId, req.user.id).then((chat) => {
     if (chat) {
       return res.json(chat)
     } else {
@@ -471,7 +496,7 @@ app.post("/api/create-chat", auth, async (req, res) => {
     userId: req.user.id,
     type: "Owner"
   })
-  getChat(chat.id).then((chat) => {
+  getChat(chat.id, req.user.id).then((chat) => {
     getChats(req.user.id).then((chats) => {
       const data = { chat, chats }
       res.json(data)
@@ -897,7 +922,7 @@ app.post("/api/direct-message/:userId", auth, async (req, res) => {
       }
     }))
   if (currentChat) {
-    getChat(currentChat.id).then((chat) => {
+    getChat(currentChat.id, req.user.id).then((chat) => {
       getChats(req.user.id).then((chats) => {
         const data = { chat, chats }
         res.json(data)
@@ -932,7 +957,7 @@ app.post("/api/direct-message/:userId", auth, async (req, res) => {
       chatId: createChat.id,
       userId: req.params.userId
     })
-    getChat(createChat.id).then((chat) => {
+    getChat(createChat.id, req.user.id).then((chat) => {
       getChats(req.user.id).then((chats) => {
         const data = { chat, chats }
         res.json(data)
@@ -1013,7 +1038,7 @@ app.delete("/api/delete-chat/:chatId", auth, async (req, res) => {
       chatId: req.params.chatId
     }
   })
-  getChat(1).then((chat) => {
+  getChat(1, req.user.id).then((chat) => {
     getChats(req.user.id).then((chats) => {
       const data = { chat, chats }
       res.json(data)
