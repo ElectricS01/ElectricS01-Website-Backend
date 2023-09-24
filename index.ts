@@ -798,6 +798,56 @@ app.post(
   }
 )
 
+app.post(
+  "/api/remove/:chatId/:userId",
+  auth,
+  async (req: RequestUser, res: Response) => {
+    const user = await Users.findOne({
+      where: {
+        id: req.params.userId
+      }
+    })
+    const chat = await Chats.findOne({
+      where: {
+        id: req.params.chatId
+      }
+    })
+    if (!user || !chat) {
+      return res.status(400).json({
+        message: "This user or chat does not exist"
+      })
+    }
+    if (chat.owner !== req.user.id) {
+      return res.status(400).json({
+        message: "You are not allowed to remove this user"
+      })
+    }
+    const association = await ChatAssociations.findOne({
+      where: {
+        chatId: chat.id,
+        userId: user.id
+      }
+    })
+    if (!association) {
+      return res.status(400).json({
+        message: "This user is not in this chat"
+      })
+    }
+    await ChatAssociations.destroy({
+      where: {
+        id: association.id
+      }
+    })
+    getChat(chat.id, req.user.id).then((chat) => {
+      getChats(req.user.id).then((chats) => {
+        const data = { chat, chats }
+        res.json(data)
+      })
+    })
+    return
+  }
+)
+
 app.post("/api/feedback", auth, async (req: RequestUser, res: Response) => {
   if (req.body.feedback.length < 1) {
     res.status(400)
