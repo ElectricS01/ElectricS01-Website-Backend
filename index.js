@@ -1301,6 +1301,19 @@ app.patch("/api/edit-chat/:chat", auth, async (req, res) => {
       }
     ]
   })
+  for (let user of req.body.users) {
+    const checkUser = await Users.findOne({
+      where: {
+        id: user
+      }
+    })
+    if (checkUser) {
+      await ChatAssociations.create({
+        chatId: req.params.chat,
+        userId: user
+      })
+    }
+  }
   const chatAssociations = await ChatAssociations.findAll({
     where: { chatId: req.params.chat },
     include: [
