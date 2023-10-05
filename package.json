@@ -1,11 +1,13 @@
 {
   "name": "electrics01-website-backend",
   "version": "1.0.0",
+  "private": true,
   "main": "index.js",
+  "scripts": {
+    "dev": "node ."
+  },
   "repository": "https://github.com/ElectricS01/ElectricS01-Website-Backend.git",
   "author": "ElectricS01 <103579308+ElectricS01@users.noreply.github.com>",
-  "license": "Better™",
-  "private": true,
   "dependencies": {
     "argon2": "^0.30.3",
     "axios": "^1.3.2",
