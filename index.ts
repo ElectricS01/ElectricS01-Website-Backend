@@ -1158,6 +1158,7 @@ app.delete(
       return
     }
     await feedback.destroy()
+    return res.sendStatus(204)
   }
 )
 
