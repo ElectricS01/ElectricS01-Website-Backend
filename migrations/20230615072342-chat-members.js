@@ -36,7 +36,6 @@ module.exports = {
         type: Sequelize.DATE
       }
     })
-    await queryInterface.renameColumn("Feedback", "userID", "userId")
   },
   async down(queryInterface, Sequelize) {
     await queryInterface.dropTable("ChatAssociations")

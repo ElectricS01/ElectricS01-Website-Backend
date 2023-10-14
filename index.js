@@ -1119,6 +1119,7 @@ app.delete("/api/delete-feedback/:feedbackId", auth, async (req, res) => {
     return
   }
   await feedback.destroy()
+  return res.sendStatus(204)
 })
 
 app.patch("/api/edit/:messageId", auth, async (req, res) => {
