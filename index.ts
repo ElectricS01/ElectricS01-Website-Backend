@@ -120,7 +120,7 @@ async function getChats(userId: number) {
     include: [
       {
         model: ChatAssociations,
-        where: { userID: userId },
+        where: { userId: userId },
         attributes: []
       },
       {

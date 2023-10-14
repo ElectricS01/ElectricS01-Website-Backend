@@ -18,7 +18,7 @@ export default class ChatAssociations extends Model {
   })
   userId!: number
 
-  @BelongsTo(() => Users, "userID")
+  @BelongsTo(() => Users, "userId")
   user!: Users
 
   @ForeignKey(() => Chats)
