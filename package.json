@@ -4,7 +4,8 @@
   "private": true,
   "main": "index.ts",
   "scripts": {
-    "dev": "node ."
+    "dev": "nodemon",
+    "prod": "ts-node-esm index.ts"
   },
   "repository": "https://github.com/ElectricS01/ElectricS01-Website-Backend.git",
   "author": "ElectricS01 <103579308+ElectricS01@users.noreply.github.com>",
