@@ -1,2 +1,28 @@
 # ElectricS01-Website-Backend
-Backend for my website's account system and chatting platform
+
+The backend for my website's account system and chatting platform written in
+Node.js
+
+## Project setup
+
+```
+yarn install
+```
+
+### Runs with hot-reloads for development
+
+```
+yarn dev
+```
+
+### Runs for production
+
+```
+yarn prod
+```
+
+### Updates dependencies
+
+```
+yarn upgrade
+```
