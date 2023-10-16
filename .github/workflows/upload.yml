@@ -1,4 +1,4 @@
-name: Better™?
+name: Upload
 on: [push]
 jobs:
   build:
