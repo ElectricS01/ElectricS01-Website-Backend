@@ -1,18 +1,23 @@
 "use strict"
+
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
   async up(queryInterface, Sequelize) {
-    await queryInterface.createTable("Messages", {
+    await queryInterface.addColumn("Users", "saveSwitcher", {
+      type: Sequelize.BOOLEAN,
+      defaultValue: true
+    })
+    await queryInterface.createTable("SwitcherHistory", {
       id: {
         allowNull: false,
         autoIncrement: true,
         primaryKey: true,
         type: Sequelize.INTEGER
       },
-      userName: {
-        type: Sequelize.STRING
+      userId: {
+        type: Sequelize.INTEGER
       },
-      messageContents: {
+      item: {
         type: Sequelize.STRING
       },
       createdAt: {
@@ -25,7 +30,8 @@ module.exports = {
       }
     })
   },
+
   async down(queryInterface, Sequelize) {
-    await queryInterface.dropTable("Messages")
+    await queryInterface.dropTable("SwitcherHistory")
   }
 }

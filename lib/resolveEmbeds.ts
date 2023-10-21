@@ -73,7 +73,9 @@ export default async function (req: Request, message: Messages) {
                       })
                     }
                   })
-                  .catch(() => {})
+                  .catch((e: Error) => {
+                    console.log(e)
+                  })
               })
           }
         }
@@ -91,8 +93,8 @@ export default async function (req: Request, message: Messages) {
       } else {
         reject()
       }
-    } catch (err) {
-      console.log(err)
+    } catch (e) {
+      console.log(e)
     }
   })
 }

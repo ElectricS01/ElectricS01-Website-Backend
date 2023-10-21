@@ -27,7 +27,7 @@
     "@jridgewell/resolve-uri" "^3.0.3"
     "@jridgewell/sourcemap-codec" "^1.4.10"
 
-"@mapbox/node-pre-gyp@^1.0.10":
+"@mapbox/node-pre-gyp@^1.0.11":
   version "1.0.11"
   resolved "https://registry.yarnpkg.com/@mapbox/node-pre-gyp/-/node-pre-gyp-1.0.11.tgz#417db42b7f5323d79e93b34a6d7a2a12c0df43fa"
   integrity sha512-Yhlar6v9WQgUp/He7BdgzOz8lqMQ8sU+jkCq7Wx8Myc5YFJLbEe7lgui/V7G1qB1DJykHSGwreceSaD60Y0PUQ==
@@ -302,14 +302,14 @@ arg@^4.1.0:
   resolved "https://registry.yarnpkg.com/arg/-/arg-4.1.3.tgz#269fc7ad5b8e42cb63c896d5666017261c144089"
   integrity sha512-58S9QDqG0Xx27YwPSt9fJxivjYl432YCwfDMfZ+71RAqUrZef7LrKQZ3LHLOwCS4FLNBplP533Zx895SeOCHvA==
 
-argon2@^0.30.3:
-  version "0.30.3"
-  resolved "https://registry.yarnpkg.com/argon2/-/argon2-0.30.3.tgz#795ca57acad76fc67dd5695732662a03018b84ed"
-  integrity sha512-DoH/kv8c9127ueJSBxAVJXinW9+EuPA3EMUxoV2sAY1qDE5H9BjTyVF/aD2XyHqbqUWabgBkIfcP3ZZuGhbJdg==
+argon2@^0.31.1:
+  version "0.31.1"
+  resolved "https://registry.yarnpkg.com/argon2/-/argon2-0.31.1.tgz#c8560bc76b12681afea13e28f3417aaa4b84c466"
+  integrity sha512-ik2xnJrLXazya7m4Nz1XfBSRjXj8Koq8qF9PsQC8059p20ifWc9zx/hgU3ItZh/3TnwXkv0RbhvjodPkmFf0bg==
   dependencies:
-    "@mapbox/node-pre-gyp" "^1.0.10"
+    "@mapbox/node-pre-gyp" "^1.0.11"
     "@phc/format" "^1.0.0"
-    node-addon-api "^5.0.0"
+    node-addon-api "^7.0.0"
 
 array-flatten@1.1.1:
   version "1.1.1"
@@ -326,7 +326,7 @@ at-least-node@^1.0.0:
   resolved "https://registry.yarnpkg.com/at-least-node/-/at-least-node-1.0.0.tgz#602cd4b46e844ad4effc92a8011a3c46e0238dc2"
   integrity sha512-+q/t7Ekv1EDY2l6Gda6LLiX14rU9TV20Wa3ofeQmwPFZbOMo9DXrLbOjFaaclkXKWidIaopwAObQDqwWtGUjqg==
 
-axios@^1.3.2:
+axios@^1.5.1:
   version "1.5.1"
   resolved "https://registry.yarnpkg.com/axios/-/axios-1.5.1.tgz#11fbaa11fc35f431193a9564109c88c1f27b585f"
   integrity sha512-Q28iYCWzNHjAm+yEAot5QaAMxhMghWLFVf7rRdwhUI+c2jix2DUXjAHXVi+s1ibs3mjPO/cCgbA++3BjD0vP/A==
@@ -570,7 +570,7 @@ create-require@^1.1.0:
   resolved "https://registry.yarnpkg.com/create-require/-/create-require-1.1.1.tgz#c1d7e8f1e5f6cfc9ff65f9cd352d37348756c333"
   integrity sha512-dcKFX3jn0MpIaXjisoRvexIJVEKzaq7z2rZKxf+MSr9TkdmHmsU4m2lcLojrj/FHl8mk5VxMmYA+ftRkP/3oKQ==
 
-crypto-random-string@3.3.1:
+crypto-random-string@^3.3.1:
   version "3.3.1"
   resolved "https://registry.yarnpkg.com/crypto-random-string/-/crypto-random-string-3.3.1.tgz#13cee94cac8001e4842501608ef779e0ed08f82d"
   integrity sha512-5j88ECEn6h17UePrLi6pn1JcLtAiANa3KExyr9y9Z5vo2mv56Gh3I4Aja/B9P9uyMwyxNHAHWv+nE72f30T5Dg==
@@ -1399,10 +1399,10 @@ next-tick@1, next-tick@^1.1.0:
   resolved "https://registry.yarnpkg.com/next-tick/-/next-tick-1.1.0.tgz#1836ee30ad56d67ef281b22bd199f709449b35eb"
   integrity sha512-CXdUiJembsNjuToQvxayPZF9Vqht7hewsvy2sOWafLvi2awflj9mOC6bHIg50orX8IJvWKY9wYQ/zB2kogPslQ==
 
-node-addon-api@^5.0.0:
-  version "5.1.0"
-  resolved "https://registry.yarnpkg.com/node-addon-api/-/node-addon-api-5.1.0.tgz#49da1ca055e109a23d537e9de43c09cca21eb762"
-  integrity sha512-eh0GgfEkpnoWDq+VY8OyvYhFEzBk6jIYbRKdIlyTiAXIVJ8PyBaKb0rp7oDtoddbdoHWhq8wwr+XZ81F1rpNdA==
+node-addon-api@^7.0.0:
+  version "7.0.0"
+  resolved "https://registry.yarnpkg.com/node-addon-api/-/node-addon-api-7.0.0.tgz#8136add2f510997b3b94814f4af1cce0b0e3962e"
+  integrity sha512-vgbBJTS4m5/KkE16t5Ly0WW9hz46swAstv0hYYwMtbG7AznRhNyfLRe8HZAiWIpcHzoO7HxhLuBQj9rJ/Ho0ZA==
 
 node-fetch@^2.6.7:
   version "2.7.0"

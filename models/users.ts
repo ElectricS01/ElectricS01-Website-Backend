@@ -61,6 +61,9 @@ export default class Users extends Model {
   @Column(DataType.BOOLEAN)
   showCreated!: boolean
 
+  @Column(DataType.BOOLEAN)
+  saveSwitcher!: boolean
+
   @Column(DataType.STRING)
   tetris!: boolean
 

@@ -1,11 +1,15 @@
 import "reflect-metadata"
 import sequelize from "./db"
+import axios from "axios"
+import argon2 from "argon2"
+import cryptoRandomString from "crypto-random-string"
 import { Embed } from "./types/embeds"
 import { RequestUser } from "./types/express"
 
 import { NextFunction, Request, Response } from "express"
 import { AxiosError, AxiosResponse } from "axios"
 
+import config from "./config/main.json"
 import auth from "./lib/auth"
 import resolveEmbeds from "./lib/resolveEmbeds"
 import nodemailerLibrary from "./lib/mailer"
@@ -14,17 +18,14 @@ import Users from "./models/users"
 import Sessions from "./models/sessions"
 import Friends from "./models/friends"
 import Feedback from "./models/feedback"
-import config from "./config/main.json"
 import Chats from "./models/chats"
 import ChatAssociations from "./models/chatAssociations"
+import SwitcherHistory from "./models/switcherHistory"
 
 sequelize
 
 const express = require("express")
 const rateLimit = require("express-rate-limit")
-const argon2 = require("argon2")
-const cryptoRandomString = require("crypto-random-string")
-const axios = require("axios")
 
 const app = express()
 const port = 24555
@@ -148,7 +149,7 @@ async function getChats(userId: number) {
   return [...chats1, ...chats2]
 }
 
-async function checkImage(url: URL) {
+async function checkImage(url: string) {
   try {
     const response = await axios.head(url)
     const contentType = response.headers["content-type"]
@@ -266,12 +267,17 @@ app.get("/api/chats", auth, async (req: RequestUser, res: Response) => {
 })
 
 app.get("/api/user", auth, async (req: RequestUser, res: Response) => {
-  res.json({
+  const userHistory = await SwitcherHistory.findAll({
+    where: { userId: req.user.id }
+  })
+  const response = {
     ...req.user.toJSON(),
     password: undefined,
     emailToken: undefined,
-    updatedAt: undefined
-  })
+    updatedAt: undefined,
+    history: userHistory
+  }
+  res.json(response)
 })
 
 app.get("/api/user/:userId", auth, async (req: RequestUser, res: Response) => {
@@ -342,7 +348,7 @@ app.get("/api/admin", auth, async (req: RequestUser, res: Response) => {
     })
     return
   }
-  const feedback = await Feedback.findAll({})
+  const feedback = await Feedback.findAll()
   res.json(feedback)
 })
 
@@ -397,7 +403,7 @@ app.post("/api/message", auth, async (req: RequestUser, res: Response) => {
         reply: replyMessage,
         chatId: req.body.chatId
       })
-      resolveEmbeds(req, message).catch(async () => {})
+      await resolveEmbeds(req, message)
       await chat.update({
         latest: Date.now()
       })
@@ -669,6 +675,7 @@ app.post("/api/user-prop", auth, async (req: RequestUser, res: Response) => {
     "directMessages",
     "friendRequests",
     "showCreated",
+    "saveSwitcher",
     "avatar",
     "description",
     "banner"
@@ -874,6 +881,38 @@ app.post("/api/feedback", auth, async (req: RequestUser, res: Response) => {
     })
   }
   await Feedback.create({
+    feedback: req.body.feedback,
+    userId: user.id
+  })
+  return res.sendStatus(204)
+})
+
+app.post("/api/history", auth, async (req: RequestUser, res: Response) => {
+  if (req.body.history.length < 1) {
+    res.status(400)
+    res.json({
+      message: "History has no content"
+    })
+    return
+  }
+  if (req.body.history.length > 50) {
+    res.status(400)
+    res.json({
+      message: "History too long"
+    })
+    return
+  }
+  const user = await Users.findOne({
+    where: {
+      id: req.user.id
+    }
+  })
+  if (!user) {
+    return res.status(400).json({
+      message: "This user does not exist"
+    })
+  }
+  await SwitcherHistory.create({
     feedback: req.body.feedback,
     userId: user.id
   })
@@ -1162,6 +1201,40 @@ app.delete(
   }
 )
 
+app.delete(
+  "/api/clear-history",
+  auth,
+  async (req: RequestUser, res: Response) => {
+    const user = await Users.findOne({
+      where: {
+        id: req.user.id
+      }
+    })
+    if (!user) {
+      res.status(400)
+      res.json({
+        message: "User does not exist"
+      })
+      return
+    }
+    const history = await SwitcherHistory.findAll({
+      where: { userId: user.id }
+    })
+    if (!history.length) {
+      res.json({
+        message: "No history found"
+      })
+      return
+    }
+    for (const record of history) {
+      await record.destroy()
+    }
+    res.json({
+      message: "History cleared"
+    })
+  }
+)
+
 app.patch(
   "/api/edit/:messageId",
   auth,
@@ -1185,21 +1258,19 @@ app.patch(
         messageContents: messageText,
         edited: true
       })
-      resolveEmbeds(req, message)
-        .then(async () => {
-          const messages = await Messages.findAll({
-            where: { chatId: message.chatId },
-            include: [
-              {
-                model: Users,
-                as: "user",
-                attributes: ["id", "username", "avatar"]
-              }
-            ]
-          })
-          res.json(messages)
+      resolveEmbeds(req, message).then(async () => {
+        const messages = await Messages.findAll({
+          where: { chatId: message.chatId },
+          include: [
+            {
+              model: Users,
+              as: "user",
+              attributes: ["id", "username", "avatar"]
+            }
+          ]
         })
-        .catch(async () => {})
+        res.json(messages)
+      })
     }
   }
 )
