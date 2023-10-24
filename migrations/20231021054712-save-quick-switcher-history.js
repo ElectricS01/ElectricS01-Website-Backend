@@ -7,27 +7,9 @@ module.exports = {
       type: Sequelize.BOOLEAN,
       defaultValue: true
     })
-    await queryInterface.createTable("SwitcherHistory", {
-      id: {
-        allowNull: false,
-        autoIncrement: true,
-        primaryKey: true,
-        type: Sequelize.INTEGER
-      },
-      userId: {
-        type: Sequelize.INTEGER
-      },
-      item: {
-        type: Sequelize.STRING
-      },
-      createdAt: {
-        allowNull: false,
-        type: Sequelize.DATE
-      },
-      updatedAt: {
-        allowNull: false,
-        type: Sequelize.DATE
-      }
+    await queryInterface.addColumn("Users", "switcherHistory", {
+      type: Sequelize.JSON,
+      defaultValue: []
     })
   },
 

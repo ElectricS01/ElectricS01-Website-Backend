@@ -20,7 +20,6 @@ import Friends from "./models/friends"
 import Feedback from "./models/feedback"
 import Chats from "./models/chats"
 import ChatAssociations from "./models/chatAssociations"
-import SwitcherHistory from "./models/switcherHistory"
 
 sequelize
 
@@ -267,15 +266,11 @@ app.get("/api/chats", auth, async (req: RequestUser, res: Response) => {
 })
 
 app.get("/api/user", auth, async (req: RequestUser, res: Response) => {
-  const userHistory = await SwitcherHistory.findAll({
-    where: { userId: req.user.id }
-  })
   const response = {
     ...req.user.toJSON(),
     password: undefined,
     emailToken: undefined,
-    updatedAt: undefined,
-    history: userHistory
+    updatedAt: undefined
   }
   res.json(response)
 })
@@ -912,9 +907,8 @@ app.post("/api/history", auth, async (req: RequestUser, res: Response) => {
       message: "This user does not exist"
     })
   }
-  await SwitcherHistory.create({
-    feedback: req.body.feedback,
-    userId: user.id
+  await user.update({
+    switcherHistory: req.body.history
   })
   return res.sendStatus(204)
 })
@@ -1217,18 +1211,15 @@ app.delete(
       })
       return
     }
-    const history = await SwitcherHistory.findAll({
-      where: { userId: user.id }
-    })
-    if (!history.length) {
+    if (!user.switcherHistory) {
       res.json({
         message: "No history found"
       })
       return
     }
-    for (const record of history) {
-      await record.destroy()
-    }
+    await user.update({
+      switcherHistory: []
+    })
     res.json({
       message: "History cleared"
     })
