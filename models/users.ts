@@ -71,7 +71,7 @@ export default class Users extends Model {
   tetris!: boolean
 
   @Column(DataType.STRING)
-  tonkgame!: boolean
+  tonkGame!: boolean
 
   @HasMany(() => Friends, "friendId")
   friend!: Friends[]

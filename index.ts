@@ -2,6 +2,7 @@ import "reflect-metadata"
 import sequelize from "./db"
 import axios from "axios"
 import argon2 from "argon2"
+import { rateLimit } from "express-rate-limit"
 import cryptoRandomString from "crypto-random-string"
 import { Embed } from "./types/embeds"
 import { RequestUser } from "./types/express"
@@ -24,7 +25,6 @@ import ChatAssociations from "./models/chatAssociations"
 sequelize
 
 const express = require("express")
-const rateLimit = require("express-rate-limit")
 
 const app = express()
 const port = 24555
@@ -32,11 +32,11 @@ const port = 24555
 const emailLibrary = new nodemailerLibrary()
 const limiter = rateLimit({
   windowMs: 5000,
-  max: 3,
+  limit: 3,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
-    message: "Too many requests, SLOW DOWN!!!"
+    message: "Too many requests, Slow Down!"
   }
 })
 
@@ -58,6 +58,12 @@ async function getChat(chatId: string, userId: number) {
         attributes: ["id", "username", "avatar"]
       }
     ]
+  })
+  const association = await ChatAssociations.findOne({
+    where: {
+      chatId: chatId,
+      userId: userId
+    }
   })
   const chatAssociations = await ChatAssociations.findAll({
     where: { chatId: chatId },
@@ -101,6 +107,7 @@ async function getChat(chatId: string, userId: number) {
     })
   }
   chat.dataValues.users = users
+  chat.dataValues.lastRead = association?.lastRead
   return chat
 }
 
@@ -162,8 +169,8 @@ async function checkImage(url: string) {
 
 app.get(
   [
-    "/api/mediaproxy/:mid/:index/:securityToken",
-    "/api/mediaproxy/:mid/:index/:securityToken.:extension"
+    "/api/media-proxy/:mid/:index/:securityToken",
+    "/api/media-proxy/:mid/:index/:securityToken.:extension"
   ],
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -188,7 +195,7 @@ app.get(
       await axios
         .get(embed.link, {
           headers: {
-            "user-agent": "Googlebot/2.1 (+http://www.google.com/bot.html)"
+            "user-agent": "Googlebot/2.1 (+https://www.google.com/bot.html)"
           },
           responseType: "arraybuffer"
         })
@@ -300,7 +307,7 @@ app.get("/api/user/:userId", auth, async (req: RequestUser, res: Response) => {
       "createdAt",
       "showCreated",
       "tetris",
-      "tonkgame"
+      "tonkGame"
     ],
     include: [
       {
@@ -315,10 +322,8 @@ app.get("/api/user/:userId", auth, async (req: RequestUser, res: Response) => {
       }
     ]
   })
-
   if (!user) {
-    res.status(400)
-    res.json({
+    res.status(400).json({
       message: "User requested does not exist"
     })
     return
@@ -337,8 +342,7 @@ app.get("/api/admin", auth, async (req: RequestUser, res: Response) => {
     }
   })
   if (!user || !user.admin) {
-    res.status(403)
-    res.json({
+    res.status(403).json({
       message: "Forbidden"
     })
     return
@@ -350,22 +354,19 @@ app.get("/api/admin", auth, async (req: RequestUser, res: Response) => {
 app.post("/api/message", auth, async (req: RequestUser, res: Response) => {
   try {
     if (req.body.messageContents.length < 1) {
-      res.status(400)
-      res.json({
+      res.status(400).json({
         message: "Message has no content"
       })
       return
     }
     if (req.body.messageContents.length > 10000) {
-      res.status(400)
-      res.json({
+      res.status(400).json({
         message: "Message too long"
       })
       return
     }
     if (!req.body.chatId) {
-      res.status(400)
-      res.json({
+      res.status(400).json({
         message: "Chat not specified"
       })
       return
@@ -376,19 +377,23 @@ app.post("/api/message", auth, async (req: RequestUser, res: Response) => {
       }
     })
     if (!chat) {
-      res.status(400)
-      res.json({
+      res.status(400).json({
         message: "Chat does not exist"
       })
       return
     }
     if (chat.requireVerification && !req.user.emailVerified) {
-      res.status(400)
-      res.json({
+      res.status(400).json({
         message: "User not verified"
       })
       return
     }
+    const association = await ChatAssociations.findOne({
+      where: {
+        chatId: req.body.chatId,
+        userId: req.user.id
+      }
+    })
     const messageText = req.body.messageContents.trim()
     const replyMessage = req.body?.reply
     if (messageText) {
@@ -412,6 +417,19 @@ app.post("/api/message", auth, async (req: RequestUser, res: Response) => {
           }
         ]
       })
+      chat.dataValues.messages = await Messages.findAll({
+        where: { chatId: req.body.chatId },
+        include: [
+          {
+            model: Users,
+            as: "user",
+            attributes: ["id", "username", "avatar"]
+          }
+        ]
+      })
+      await association?.update({
+        lastRead: chat.dataValues.messages.length - 1
+      })
       const chatAssociations = await ChatAssociations.findAll({
         where: { chatId: req.body.chatId },
         include: [
@@ -429,65 +447,59 @@ app.post("/api/message", auth, async (req: RequestUser, res: Response) => {
         })
       }
       chat.dataValues.users = users
+      chat.dataValues.lastRead = association?.lastRead
       getChats(req.user.id).then((chats) => {
         const data = { chat, chats }
         res.json(data)
       })
     }
   } catch (e) {
-    res.status(500)
-    res.json({
-      message: "Something went wrong" + e
+    console.log(e)
+    res.status(500).json({
+      message: "Something went wrong"
     })
   }
 })
 
 app.post("/api/create-chat", auth, async (req: RequestUser, res: Response) => {
   if (!req.body.name) {
-    res.status(400)
-    res.json({
+    res.status(400).json({
       message: "Chat name not specified"
     })
     return
   }
   if (typeof req.body.requireVerification !== "boolean") {
-    res.status(400)
-    res.json({
+    res.status(400).json({
       message: "requireVerification not specified"
     })
     return
   }
   if (req.body.requireVerification === true && !req.user.emailVerified) {
-    res.status(400)
-    res.json({
+    res.status(400).json({
       message: "You are not verified"
     })
     return
   }
   if (req.body.icon && !req.body.icon.match(/(https?:\/\/\S+)/g)) {
-    res.status(400)
-    res.json({
+    res.status(400).json({
       message: "Icon is not a valid URL"
     })
     return
   }
   if (req.body.name.length > 30) {
-    res.status(400)
-    res.json({
+    res.status(400).json({
       message: "Chat name too long"
     })
     return
   }
   if (req.body.description.length > 500) {
-    res.status(400)
-    res.json({
+    res.status(400).json({
       message: "Chat description too long"
     })
     return
   }
   if (!req.user.admin) {
-    res.status(403)
-    res.json({
+    res.status(403).json({
       message: "Forbidden"
     })
     return
@@ -520,8 +532,7 @@ app.post("/api/register", async (req: Request, res: Response) => {
       req.body.password.length < 1 ||
       req.body.email.length < 1
     ) {
-      res.status(500)
-      res.json({
+      res.status(500).json({
         message: "Form not complete"
       })
       return
@@ -533,8 +544,7 @@ app.post("/api/register", async (req: Request, res: Response) => {
         }
       })
     ) {
-      res.status(400)
-      res.json({
+      res.status(400).json({
         message: "Username is taken"
       })
       return
@@ -546,8 +556,7 @@ app.post("/api/register", async (req: Request, res: Response) => {
         }
       })
     ) {
-      res.status(400)
-      res.json({
+      res.status(400).json({
         message: "Email is taken"
       })
       return
@@ -581,8 +590,7 @@ app.post("/api/register", async (req: Request, res: Response) => {
     res.json({ token: session.token })
   } catch (e) {
     console.log(e)
-    res.status(500)
-    res.json({
+    res.status(500).json({
       message: "Something went wrong"
     })
   }
@@ -616,21 +624,18 @@ app.post("/api/login", async (req: Request, res: Response) => {
     })
   } catch (e) {
     console.log(e)
-    res.status(500)
-    return res.json({
+    return res.status(500).json({
       message: "Something went wrong"
     })
   }
 })
 
-app.post("/api/reset-email", async (req: Request, res: Response) => {
+app.post("/api/reset-password", async (req: Request, res: Response) => {
   try {
     if (req.body.email.length < 1) {
-      res.status(500)
-      res.json({
+      return res.status(500).json({
         message: "Form not complete"
       })
-      return
     }
     const user = await Users.findOne({
       where: {
@@ -642,19 +647,13 @@ app.post("/api/reset-email", async (req: Request, res: Response) => {
       res.json({
         message: "Email does not exist"
       })
-      res.status(500)
-      return res.json({
-        message: "Something went wrong"
-      })
     }
-    res.status(500)
-    return res.json({
-      message: "e"
+    return res.status(500).json({
+      message: "This feature is unavailable right now"
     })
   } catch (e) {
     console.log(e)
-    res.status(500)
-    return res.json({
+    return res.status(500).json({
       message: "Something went wrong"
     })
   }
@@ -676,8 +675,7 @@ app.post("/api/user-prop", auth, async (req: RequestUser, res: Response) => {
     "banner"
   ]
   if (!user || !properties.includes(req.body.prop)) {
-    res.status(400)
-    res.json({
+    res.status(400).json({
       message: "No property selected"
     })
     return
@@ -774,7 +772,6 @@ app.post(
           friendId: req.user.id
         }
       })
-      return res.sendStatus(204)
     } else if (friend.status === "incoming") {
       await Friends.update(
         { status: "accepted" },
@@ -794,7 +791,6 @@ app.post(
           }
         }
       )
-      return res.sendStatus(204)
     }
     return res.sendStatus(204)
   }
@@ -852,18 +848,14 @@ app.post(
 
 app.post("/api/feedback", auth, async (req: RequestUser, res: Response) => {
   if (req.body.feedback.length < 1) {
-    res.status(400)
-    res.json({
+    return res.status(400).json({
       message: "Feedback has no content"
     })
-    return
   }
   if (req.body.feedback.length > 500) {
-    res.status(400)
-    res.json({
+    return res.status(400).json({
       message: "Feedback too long"
     })
-    return
   }
   const user = await Users.findOne({
     where: {
@@ -884,15 +876,13 @@ app.post("/api/feedback", auth, async (req: RequestUser, res: Response) => {
 
 app.post("/api/history", auth, async (req: RequestUser, res: Response) => {
   if (req.body.history.length < 1) {
-    res.status(400)
-    res.json({
+    res.status(400).json({
       message: "History has no content"
     })
     return
   }
   if (req.body.history.length > 50) {
-    res.status(400)
-    res.json({
+    res.status(400).json({
       message: "History too long"
     })
     return
@@ -988,15 +978,13 @@ app.post(
   auth,
   async (req: RequestUser, res: Response) => {
     if (!req.params.userId) {
-      res.status(400)
-      res.json({
+      res.status(400).json({
         message: "User id is required"
       })
       return
     }
     if (req.params.userId === req.user.id.toString()) {
-      res.status(400)
-      res.json({
+      res.status(400).json({
         message: "Cannot send direct message to yourself"
       })
       return
@@ -1007,8 +995,7 @@ app.post(
       }
     })
     if (!otherUser) {
-      res.status(400)
-      res.json({
+      res.status(400).json({
         message: "User does not exist"
       })
       return
@@ -1040,8 +1027,7 @@ app.post(
         }
       })
       if (!otherUser) {
-        res.status(400)
-        res.json({
+        res.status(400).json({
           message: "User does not exist"
         })
         return
@@ -1072,6 +1058,49 @@ app.post(
   }
 )
 
+app.post("/api/read-new/:id", auth, async (req: RequestUser, res: Response) => {
+  if (!req.params.id) {
+    return res.status(400).json({
+      message: "No chat specified"
+    })
+  }
+  const chat = await Chats.findOne({
+    where: {
+      id: req.params.id
+    }
+  })
+  if (!chat) {
+    return res.status(400).json({
+      message: "Chat does not exist"
+    })
+  }
+  chat.dataValues.messages = await Messages.findAll({
+    where: { chatId: req.params.id },
+    include: [
+      {
+        model: Users,
+        as: "user",
+        attributes: ["id", "username", "avatar"]
+      }
+    ]
+  })
+  const association = await ChatAssociations.findOne({
+    where: {
+      chatId: req.params.id,
+      userId: req.user.id
+    }
+  })
+  if (!association) {
+    return res.status(400).json({
+      message: "You do not have access to this chat"
+    })
+  }
+  await association.update({
+    lastRead: chat.dataValues.messages.length - 1
+  })
+  return res.sendStatus(204)
+})
+
 app.delete(
   "/api/delete/:messageId",
   auth,
@@ -1082,8 +1111,7 @@ app.delete(
       }
     })
     if (!message) {
-      res.status(400)
-      res.json({
+      res.status(400).json({
         message: "Message does not exist"
       })
       return
@@ -1116,22 +1144,19 @@ app.delete(
       }
     })
     if (!currentChat) {
-      res.status(400)
-      res.json({
+      res.status(400).json({
         message: "Chat does not exist"
       })
       return
     }
     if (currentChat.id === 1) {
-      res.status(400)
-      res.json({
+      res.status(400).json({
         message: "Cannot delete this chat"
       })
       return
     }
     if (currentChat.owner !== req.user.id) {
-      res.status(403)
-      res.json({
+      res.status(403).json({
         message: "Forbidden"
       })
       return
@@ -1165,15 +1190,13 @@ app.delete(
   auth,
   async (req: RequestUser, res: Response) => {
     if (!req.user.admin) {
-      res.status(403)
-      res.json({
+      res.status(403).json({
         message: "Forbidden"
       })
       return
     }
     if (!req.params.feedbackId) {
-      res.status(400)
-      res.json({
+      res.status(400).json({
         message: "Feedback does not exist"
       })
       return
@@ -1184,8 +1207,7 @@ app.delete(
       }
     })
     if (!feedback) {
-      res.status(400)
-      res.json({
+      res.status(400).json({
         message: "Feedback does not exist"
       })
       return
@@ -1205,9 +1227,8 @@ app.delete(
       }
     })
     if (!user) {
-      res.status(400)
-      res.json({
-        message: "User does not exist"
+      res.status(400).json({
+        message: "This user does not exist"
       })
       return
     }
@@ -1238,8 +1259,7 @@ app.patch(
       }
     })
     if (!message || !messageText) {
-      res.status(400)
-      res.json({
+      res.status(400).json({
         message: "Message has no content"
       })
       return
@@ -1277,15 +1297,13 @@ app.patch(
       }
     })
     if (!user || !statusText) {
-      res.status(400)
-      res.json({
+      res.status(400).json({
         message: "Status has no content"
       })
       return
     }
     if (statusText.length > 50) {
-      res.status(400)
-      res.json({
+      res.status(400).json({
         message: "Status too long"
       })
       return
@@ -1314,15 +1332,13 @@ app.patch("/api/tetris", auth, async (req: RequestUser, res: Response) => {
     }
   })
   if (!user || !data) {
-    res.status(400)
-    res.json({
+    res.status(400).json({
       message: "No content"
     })
     return
   }
   if (data.length > 500) {
-    res.status(400)
-    res.json({
+    res.status(400).json({
       message: "Data too long"
     })
     return
@@ -1345,57 +1361,49 @@ app.patch(
       }
     })
     if (!chat) {
-      res.status(400)
-      res.json({
+      res.status(400).json({
         message: "Chat does not exist"
       })
       return
     }
     if (chat.owner !== req.user.id) {
-      res.status(403)
-      res.json({
+      res.status(403).json({
         message: "Forbidden"
       })
       return
     }
     if (!req.body.name) {
-      res.status(400)
-      res.json({
+      res.status(400).json({
         message: "Chat name not specified"
       })
       return
     }
     if (typeof req.body.requireVerification !== "boolean") {
-      res.status(400)
-      res.json({
+      res.status(400).json({
         message: "requireVerification not specified"
       })
       return
     }
     if (req.body.requireVerification === true && !req.user.emailVerified) {
-      res.status(400)
-      res.json({
+      res.status(400).json({
         message: "You are not verified"
       })
       return
     }
     if (req.body.icon && !req.body.icon.match(/(https?:\/\/\S+)/g)) {
-      res.status(400)
-      res.json({
+      res.status(400).json({
         message: "Icon is not a valid URL"
       })
       return
     }
     if (req.body.name.length > 30) {
-      res.status(400)
-      res.json({
+      res.status(400).json({
         message: "Chat name too long"
       })
       return
     }
     if (req.body.description.length > 500) {
-      res.status(400)
-      res.json({
+      res.status(400).json({
         message: "Chat description too long"
       })
       return
@@ -1454,5 +1462,5 @@ app.patch(
 )
 
 app.listen(port, () => {
-  console.log(`Example app listening on port ${port}`)
+  console.log(`ElectricS01-Website-Backend listening on port ${port}`)
 })

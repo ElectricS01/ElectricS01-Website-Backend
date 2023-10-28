@@ -6,17 +6,8 @@ module.exports = {
     await queryInterface.addColumn("Users", "tetris", {
       type: Sequelize.STRING
     })
-    await queryInterface.addColumn("Users", "tonkgame", {
+    await queryInterface.addColumn("Users", "tonkGame", {
       type: Sequelize.STRING
     })
-  },
-
-  async down(queryInterface, Sequelize) {
-    /**
-     * Add reverting commands here.
-     *
-     * Example:
-     * await queryInterface.dropTable('users');
-     */
   }
 }

@@ -36,5 +36,12 @@ export default class ChatAssociations extends Model {
     allowNull: false,
     defaultValue: "Member"
   })
-  type!: number
+  type!: string
+
+  @Column({
+    type: DataType.STRING,
+    allowNull: false,
+    defaultValue: -1
+  })
+  lastRead!: number
 }

@@ -12,7 +12,6 @@ module.exports = {
       defaultValue: []
     })
   },
-
   async down(queryInterface, Sequelize) {
     await queryInterface.dropTable("SwitcherHistory")
   }

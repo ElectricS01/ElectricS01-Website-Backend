@@ -64,7 +64,7 @@ export default async function (req: Request, message: Messages) {
                         link: link,
                         securityToken,
                         mediaProxyLink:
-                          "/api/mediaproxy/" +
+                          "/api/media-proxy/" +
                           message.id +
                           "/" +
                           i +

@@ -10,14 +10,5 @@ module.exports = {
       type: Sequelize.TEXT,
       defaultValue: "This is a new chat"
     })
-  },
-
-  async down(queryInterface, Sequelize) {
-    /**
-     * Add reverting commands here.
-     *
-     * Example:
-     * await queryInterface.dropTable('users');
-     */
   }
 }
