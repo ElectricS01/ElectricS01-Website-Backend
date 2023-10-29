@@ -428,7 +428,7 @@ app.post("/api/message", auth, async (req: RequestUser, res: Response) => {
         ]
       })
       await association?.update({
-        lastRead: chat.dataValues.messages.length - 1
+        lastRead: chat.dataValues.messages.length
       })
       const chatAssociations = await ChatAssociations.findAll({
         where: { chatId: req.body.chatId },
@@ -1096,7 +1096,7 @@ app.post("/api/read-new/:id", auth, async (req: RequestUser, res: Response) => {
     })
   }
   await association.update({
-    lastRead: chat.dataValues.messages.length - 1
+    lastRead: chat.dataValues.messages.length
   })
   return res.sendStatus(204)
 })
