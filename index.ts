@@ -671,14 +671,13 @@ app.post("/api/user-prop", auth, async (req: RequestUser, res: Response) => {
     "showCreated",
     "saveSwitcher",
     "avatar",
-    "description",
-    "banner"
+    "banner",
+    "description"
   ]
   if (!user || !properties.includes(req.body.prop)) {
-    res.status(400).json({
+    return res.status(400).json({
       message: "No property selected"
     })
-    return
   }
   if (
     ((req.body.prop === "avatar" || req.body.prop === "banner") &&
@@ -693,9 +692,25 @@ app.post("/api/user-prop", auth, async (req: RequestUser, res: Response) => {
       message: "Invalid image"
     })
   }
+  if (
+    (req.body.prop === "directMessages" ||
+      req.body.prop === "friendRequests" ||
+      req.body.prop === "showCreated" ||
+      req.body.prop === "saveSwitcher") &&
+    typeof req.body.val !== "boolean"
+  ) {
+    return res.status(400).json({
+      message: "Invalid request"
+    })
+  }
   await user.update({
     [req.body.prop]: req.body.val
   })
+  if (req.body.prop === "saveSwitcher") {
+    await user.update({
+      switcherHistory: []
+    })
+  }
   return res.sendStatus(204)
 })
 
