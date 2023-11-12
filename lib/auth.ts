@@ -8,13 +8,8 @@ export default async function (
   res: Response,
   next: NextFunction
 ) {
-  const authorizationHeader = req.header("Authorization")
-  if (!authorizationHeader)
-    return res.status(401).send("Access denied. No token provided.")
-
-  const token = authorizationHeader
-  if (!token) return res.status(401).send("Access denied. Invalid token.")
-
+  const token = req.header("Authorization")
+  if (!token) return res.status(401).send("Access denied. No token provided.")
   const session = await Sessions.findOne({
     where: { token },
     include: [
@@ -25,7 +20,6 @@ export default async function (
     ]
   })
   if (!session) return res.status(401).send("Access denied. Invalid token.")
-
   req.user = session.user
   return next()
 }

@@ -64,7 +64,7 @@ export default class Users extends Model {
   @Column(DataType.BOOLEAN)
   saveSwitcher!: boolean
 
-  @Column(DataType.JSON)
+  @Column({ type: DataType.JSON, defaultValue: [] })
   switcherHistory!: boolean
 
   @Column(DataType.STRING)

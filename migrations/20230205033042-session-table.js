@@ -3,10 +3,18 @@
 module.exports = {
   async up(queryInterface, Sequelize) {
     await queryInterface.createTable("Sessions", {
+      id: {
+        allowNull: false,
+        autoIncrement: true,
+        primaryKey: true,
+        type: Sequelize.INTEGER
+      },
       token: {
+        allowNull: false,
         type: Sequelize.STRING
       },
       userId: {
+        allowNull: false,
         type: Sequelize.STRING
       },
       createdAt: {
@@ -18,9 +26,6 @@ module.exports = {
         type: Sequelize.DATE
       },
       expiredAt: {
-        type: Sequelize.STRING
-      },
-      id: {
         type: Sequelize.STRING
       }
     })

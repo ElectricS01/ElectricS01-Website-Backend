@@ -160,9 +160,8 @@ async function checkImage(url: string) {
     const response = await axios.head(url)
     const contentType = response.headers["content-type"]
     return contentType.startsWith("image/")
-  } catch (error: any) {
-    // Handle request error (e.g., URL is invalid or inaccessible)
-    console.error("Error occurred:", error.message)
+  } catch (e: any) {
+    console.error("Error occurred:", e.message)
     return false
   }
 }
@@ -228,42 +227,15 @@ app.use(
   })
 )
 
-app.get("/api/messages/:chatId", auth, async (req: Request, res: Response) => {
-  if (!req.params.chatId) {
-    return res.status(400).json({
-      message: "Missing chatId"
-    })
-  }
-  const messages = await Messages.findAll({
-    where: { chatId: req.params.chatId },
-    include: [
-      {
-        model: Users,
-        as: "user",
-        attributes: ["id", "username", "avatar"]
-      }
-    ]
-  })
-  return res.json(messages)
-})
-
 app.get("/api/chat/:chatId", auth, async (req: RequestUser, res: Response) => {
   await getChat(req.params.chatId, req.user.id).then((chat) => {
-    if (chat) {
-      return res.json(chat)
-    } else {
+    if (!chat) {
       return res.status(400).json({
         message: "Chat does not exist"
       })
     }
+    return res.json(chat)
   })
-})
-
-app.get("/api/users", auth, async (res: Response) => {
-  const users = await Users.findAll({
-    attributes: ["id", "username", "avatar", "status", "statusMessage"]
-  })
-  res.json(users)
 })
 
 app.get("/api/chats", auth, async (req: RequestUser, res: Response) => {
@@ -273,13 +245,12 @@ app.get("/api/chats", auth, async (req: RequestUser, res: Response) => {
 })
 
 app.get("/api/user", auth, async (req: RequestUser, res: Response) => {
-  const response = {
+  res.json({
     ...req.user.toJSON(),
     password: undefined,
     emailToken: undefined,
     updatedAt: undefined
-  }
-  res.json(response)
+  })
 })
 
 app.get("/api/user/:userId", auth, async (req: RequestUser, res: Response) => {
@@ -290,25 +261,22 @@ app.get("/api/user/:userId", auth, async (req: RequestUser, res: Response) => {
     })
     return
   }
-  const user: Users | null = await Users.findOne({
+  const user = await Users.findOne({
     where: {
       id: req.params.userId
     },
-    attributes: [
-      "id",
-      "username",
-      "avatar",
-      "description",
-      "banner",
-      "directMessages",
-      "friendRequests",
-      "status",
-      "statusMessage",
-      "createdAt",
-      "showCreated",
-      "tetris",
-      "tonkGame"
-    ],
+    attributes: {
+      exclude: [
+        "email",
+        "password",
+        "emailVerified",
+        "emailToken",
+        "admin",
+        "saveSwitcher",
+        "switcherHistory",
+        "updatedAt"
+      ]
+    },
     include: [
       {
         model: Friends,
@@ -323,32 +291,34 @@ app.get("/api/user/:userId", auth, async (req: RequestUser, res: Response) => {
     ]
   })
   if (!user) {
-    res.status(400).json({
+    return res.status(400).json({
       message: "User requested does not exist"
     })
-    return
   }
   if (!user.dataValues.showCreated) {
     user.dataValues.createdAt = null
-    user.dataValues.showCreated = null
   }
-  res.json(user)
+  user.dataValues.showCreated = undefined
+  return res.json(user)
 })
 
 app.get("/api/admin", auth, async (req: RequestUser, res: Response) => {
-  const user = await Users.findOne({
-    where: {
-      id: req.user.id
-    }
-  })
-  if (!user || !user.admin) {
-    res.status(403).json({
+  if (!req.user.admin) {
+    return res.status(403).json({
       message: "Forbidden"
     })
-    return
   }
-  const feedback = await Feedback.findAll()
-  res.json(feedback)
+  return res.json(await Feedback.findAll())
+})
+
+app.get("/api/sessions", auth, async (req: RequestUser, res: Response) => {
+  const sessions = await Sessions.findAll({
+    where: {
+      userId: req.user.id
+    },
+    attributes: { exclude: ["token", "userId", "updatedAt"] }
+  })
+  res.json(sessions)
 })
 
 app.post("/api/message", auth, async (req: RequestUser, res: Response) => {
@@ -449,8 +419,7 @@ app.post("/api/message", auth, async (req: RequestUser, res: Response) => {
       chat.dataValues.users = users
       chat.dataValues.lastRead = association?.lastRead
       getChats(req.user.id).then((chats) => {
-        const data = { chat, chats }
-        res.json(data)
+        res.status(201).json({ chat, chats })
       })
     }
   } catch (e) {
@@ -519,8 +488,7 @@ app.post("/api/create-chat", auth, async (req: RequestUser, res: Response) => {
   })
   getChat(chat.id, req.user.id).then((chat) => {
     getChats(req.user.id).then((chats) => {
-      const data = { chat, chats }
-      res.json(data)
+      res.json({ chat, chats })
     })
   })
 })
@@ -585,7 +553,8 @@ app.post("/api/register", async (req: Request, res: Response) => {
       })
     const session = await Sessions.create({
       userId: user.id,
-      token: cryptoRandomString({ length: 128 })
+      token: cryptoRandomString({ length: 128 }),
+      userAgent: req.body.userAgent
     })
     res.json({ token: session.token })
   } catch (e) {
@@ -610,13 +579,14 @@ app.post("/api/login", async (req: Request, res: Response) => {
         username: req.body.username
       }
     })
-    if (!user) return res.status(401).json({ message: "Form error" })
+    if (!user) return res.status(401).json({ message: "User not found" })
     if (!(await argon2.verify(user.password, req.body.password))) {
       return res.status(401).json({ message: "Incorrect password" })
     }
     const session = await Sessions.create({
       userId: user.id,
-      token: cryptoRandomString({ length: 128 })
+      token: cryptoRandomString({ length: 128 }),
+      userAgent: req.body.userAgent
     })
     return res.json({
       token: session.token,
@@ -674,18 +644,18 @@ app.post("/api/user-prop", auth, async (req: RequestUser, res: Response) => {
     "banner",
     "description"
   ]
-  if (!user || !properties.includes(req.body.prop)) {
+  if (!user || !properties.includes(req.body.property)) {
     return res.status(400).json({
       message: "No property selected"
     })
   }
   if (
-    ((req.body.prop === "avatar" || req.body.prop === "banner") &&
+    ((req.body.property === "avatar" || req.body.property === "banner") &&
       req.body.val &&
       !(await checkImage(req.body.val))) ||
-    ((req.body.prop === "avatar" ||
-      req.body.prop === "banner" ||
-      req.body.prop === "description") &&
+    ((req.body.property === "avatar" ||
+      req.body.property === "banner" ||
+      req.body.property === "description") &&
       !req.body.val)
   ) {
     return res.status(400).json({
@@ -693,10 +663,10 @@ app.post("/api/user-prop", auth, async (req: RequestUser, res: Response) => {
     })
   }
   if (
-    (req.body.prop === "directMessages" ||
-      req.body.prop === "friendRequests" ||
-      req.body.prop === "showCreated" ||
-      req.body.prop === "saveSwitcher") &&
+    (req.body.property === "directMessages" ||
+      req.body.property === "friendRequests" ||
+      req.body.property === "showCreated" ||
+      req.body.property === "saveSwitcher") &&
     typeof req.body.val !== "boolean"
   ) {
     return res.status(400).json({
@@ -704,9 +674,9 @@ app.post("/api/user-prop", auth, async (req: RequestUser, res: Response) => {
     })
   }
   await user.update({
-    [req.body.prop]: req.body.val
+    [req.body.property]: req.body.val
   })
-  if (req.body.prop === "saveSwitcher") {
+  if (req.body.property === "saveSwitcher") {
     await user.update({
       switcherHistory: []
     })
@@ -853,8 +823,7 @@ app.post(
     })
     getChat(chat.id, req.user.id).then((chat) => {
       getChats(req.user.id).then((chats) => {
-        const data = { chat, chats }
-        res.json(data)
+        res.json({ chat, chats })
       })
     })
     return
@@ -872,19 +841,9 @@ app.post("/api/feedback", auth, async (req: RequestUser, res: Response) => {
       message: "Feedback too long"
     })
   }
-  const user = await Users.findOne({
-    where: {
-      id: req.user.id
-    }
-  })
-  if (!user) {
-    return res.status(400).json({
-      message: "This user does not exist"
-    })
-  }
   await Feedback.create({
     feedback: req.body.feedback,
-    userId: user.id
+    userId: req.user.id
   })
   return res.sendStatus(204)
 })
@@ -953,8 +912,8 @@ app.post(
           user.emailToken +
           "\n\nIf you did not request this email, please ignore it.\n\nThanks,\nElectrics01 Support Team"
       )
-      .catch((error: AxiosError) => {
-        console.log("Error occurred while sending email:", error)
+      .catch((e: AxiosError) => {
+        console.log("Error occurred while sending email:", e)
       })
     return res.sendStatus(204)
   }
@@ -1031,8 +990,7 @@ app.post(
     if (currentChat) {
       getChat(currentChat.id, req.user.id).then((chat) => {
         getChats(req.user.id).then((chats) => {
-          const data = { chat, chats }
-          res.json(data)
+          res.json({ chat, chats })
         })
       })
     } else {
@@ -1065,8 +1023,7 @@ app.post(
       })
       getChat(createChat.id, req.user.id).then((chat) => {
         getChats(req.user.id).then((chats) => {
-          const data = { chat, chats }
-          res.json(data)
+          res.json({ chat, chats })
         })
       })
     }
@@ -1193,8 +1150,7 @@ app.delete(
     })
     getChat("1", req.user.id).then((chat) => {
       getChats(req.user.id).then((chats) => {
-        const data = { chat, chats }
-        res.json(data)
+        res.json({ chat, chats })
       })
     })
   }
@@ -1228,7 +1184,7 @@ app.delete(
       return
     }
     await feedback.destroy()
-    return res.sendStatus(204)
+    return res.json({ message: "Feedback has been deleted" })
   }
 )
 
@@ -1259,6 +1215,26 @@ app.delete(
     res.json({
       message: "History cleared"
     })
+  }
+)
+
+app.delete(
+  "/api/delete-session/:id",
+  auth,
+  async (req: RequestUser, res: Response) => {
+    const session = await Sessions.findOne({
+      where: {
+        userId: req.user.id,
+        id: req.params.id
+      }
+    })
+    if (!session) {
+      return res.status(400).json({
+        message: "Session does not exist"
+      })
+    }
+    await session.destroy()
+    return res.json({ message: "Session has been deleted" })
   }
 )
 
@@ -1331,11 +1307,7 @@ app.patch(
     const users = await Users.findAll({
       attributes: ["id", "username", "avatar", "status", "statusMessage"]
     })
-    const data = {
-      users,
-      statusMessage: user.statusMessage
-    }
-    res.json(data)
+    res.json({ users, statusMessage: user.statusMessage })
   }
 )
 
@@ -1470,8 +1442,7 @@ app.patch(
     }
     chat.dataValues.users = users
     getChats(req.user.id).then((chats) => {
-      const data = { chat, chats }
-      res.json(data)
+      res.json({ chat, chats })
     })
   }
 )

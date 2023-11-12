@@ -6,14 +6,5 @@ module.exports = {
     await queryInterface.addColumn("Users", "description", {
       type: Sequelize.TEXT
     })
-  },
-
-  async down(queryInterface, Sequelize) {
-    /**
-     * Add reverting commands here.
-     *
-     * Example:
-     * await queryInterface.dropTable('users');
-     */
   }
 }

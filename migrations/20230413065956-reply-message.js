@@ -6,14 +6,5 @@ module.exports = {
     await queryInterface.addColumn("Messages", "reply", {
       type: Sequelize.INTEGER
     })
-  },
-
-  async down(queryInterface, Sequelize) {
-    /**
-     * Add reverting commands here.
-     *
-     * Example:
-     * await queryInterface.dropTable('users');
-     */
   }
 }

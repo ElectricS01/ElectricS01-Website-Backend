@@ -21,4 +21,7 @@ export default class Sessions extends Model {
 
   @Column
   expiredAt!: Date
+
+  @Column
+  userAgent!: string
 }
