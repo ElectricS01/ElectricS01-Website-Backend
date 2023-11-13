@@ -19,7 +19,8 @@ export default async function (
       }
     ]
   })
-  if (!session) return res.status(401).send("Access denied. Invalid token.")
+  if (!session || !session.user)
+    return res.status(401).send("Access denied. Invalid token.")
   req.user = session.user
   return next()
 }
