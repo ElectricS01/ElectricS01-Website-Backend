@@ -78,6 +78,17 @@ async function getChat(chatId: string, userId: number) {
           "status",
           "statusMessage",
           "friendRequests"
+        ],
+        include: [
+          {
+            model: Friends,
+            as: "friend",
+            required: false,
+            where: {
+              userId: userId
+            },
+            attributes: ["status"]
+          }
         ]
       }
     ]
