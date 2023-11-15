@@ -666,6 +666,7 @@ app.post("/api/user-prop", auth, async (req: RequestUser, res: Response) => {
       !(await checkImage(req.body.val))) ||
     ((req.body.property === "avatar" ||
       req.body.property === "banner" ||
+      req.body.property === "directMessages" ||
       req.body.property === "description") &&
       !req.body.val)
   ) {
@@ -674,8 +675,7 @@ app.post("/api/user-prop", auth, async (req: RequestUser, res: Response) => {
     })
   }
   if (
-    (req.body.property === "directMessages" ||
-      req.body.property === "friendRequests" ||
+    (req.body.property === "friendRequests" ||
       req.body.property === "showCreated" ||
       req.body.property === "saveSwitcher") &&
     typeof req.body.val !== "boolean"
