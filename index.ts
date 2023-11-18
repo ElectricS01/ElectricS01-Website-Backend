@@ -5,7 +5,7 @@ import argon2 from "argon2"
 import { rateLimit } from "express-rate-limit"
 import cryptoRandomString from "crypto-random-string"
 import { Embed } from "./types/embeds"
-import { RequestUser } from "./types/express"
+import { RequestUser, RequestUserSession } from "./types/express"
 
 import { NextFunction, Request, Response } from "express"
 import { AxiosError, AxiosResponse } from "axios"
@@ -330,6 +330,20 @@ app.get("/api/sessions", auth, async (req: RequestUser, res: Response) => {
     attributes: { exclude: ["token", "userId", "updatedAt"] }
   })
   res.json(sessions)
+})
+
+app.get("/api/logout-all", auth, async (req: RequestUser, res: Response) => {
+  if (!(await argon2.verify(req.user.password, req.body.password))) {
+    return res.status(400).json({
+      message: "Incorrect password"
+    })
+  }
+  await Sessions.destroy({
+    where: {
+      userId: req.user.id
+    }
+  })
+  return res.sendStatus(204)
 })
 
 app.post("/api/message", auth, async (req: RequestUser, res: Response) => {
@@ -1083,6 +1097,15 @@ app.post("/api/read-new/:id", auth, async (req: RequestUser, res: Response) => {
   })
   return res.sendStatus(204)
 })
+
+app.post(
+  "/api/logout",
+  auth,
+  async (req: RequestUserSession, res: Response) => {
+    await req.session.destroy()
+    res.sendStatus(204)
+  }
+)
 
 app.delete(
   "/api/delete/:messageId",
