@@ -5,6 +5,5 @@ export interface RequestUser extends Request {
   user: User
 }
 export interface RequestUserSession extends Request {
-  user: User
   session: Sessions
 }
