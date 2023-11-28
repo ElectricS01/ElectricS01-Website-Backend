@@ -437,7 +437,7 @@ app.post("/api/message", auth, async (req: RequestUser, res: Response) => {
       }
       wss.clients.forEach((wsClient: WebSocket) => {
         const test = users.find(
-          (user) => user.id === (wsClient as AuthWebSocket).user.id
+          (user) => user.id === (wsClient as AuthWebSocket).user?.id
         )
         if (test && test.id !== message.userId)
           wsClient.send(JSON.stringify({ newMessage: message }))
