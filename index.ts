@@ -396,7 +396,7 @@ app.post("/api/message", auth, async (req: RequestUser, res: Response) => {
       await chat.update({
         latest: Date.now()
       })
-      chat.dataValues.messages = await Messages.findAll({
+      const messages = await Messages.findAll({
         where: { chatId: req.body.chatId },
         include: [
           {
@@ -406,18 +406,9 @@ app.post("/api/message", auth, async (req: RequestUser, res: Response) => {
           }
         ]
       })
-      chat.dataValues.messages = await Messages.findAll({
-        where: { chatId: req.body.chatId },
-        include: [
-          {
-            model: Users,
-            as: "user",
-            attributes: ["id", "username", "avatar"]
-          }
-        ]
-      })
+      const lastMessage = messages.splice(-1)[0]
       await association?.update({
-        lastRead: chat.dataValues.messages.length
+        lastRead: messages.length
       })
       const chatAssociations = await ChatAssociations.findAll({
         where: { chatId: req.body.chatId },
@@ -436,16 +427,14 @@ app.post("/api/message", auth, async (req: RequestUser, res: Response) => {
         })
       }
       wss.clients.forEach((wsClient: WebSocket) => {
-        const test = users.find(
+        const user = users.find(
           (user) => user.id === (wsClient as AuthWebSocket).user?.id
         )
-        if (test && test.id !== message.userId)
-          wsClient.send(JSON.stringify({ newMessage: message }))
+        if (user && user.id !== message.userId)
+          wsClient.send(JSON.stringify({ newMessage: lastMessage }))
       })
-      chat.dataValues.users = users
-      chat.dataValues.lastRead = association?.lastRead
       getChats(req.user.id).then((chats) => {
-        res.status(201).json({ chat, chats })
+        res.json({ lastMessage, chats })
       })
     }
   } catch (e) {
