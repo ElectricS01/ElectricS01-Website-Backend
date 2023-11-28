@@ -23,11 +23,13 @@
     "sequelize": "^6.35.0",
     "sequelize-cli": "^6.5.2",
     "sequelize-typescript": "^2.1.5",
-    "typescript": "^5.0.3"
+    "typescript": "^5.0.3",
+    "ws": "^8.14.2"
   },
   "devDependencies": {
     "@types/express": "^4.17.17",
     "@types/nodemailer": "^6.4.8",
+    "@types/ws": "^8.5.10",
     "nodemon": "^3.0.1",
     "ts-node": "^10.9.1"
   }

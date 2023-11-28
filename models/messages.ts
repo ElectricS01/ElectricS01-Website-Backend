@@ -13,7 +13,7 @@ import { Embed } from "../types/embeds"
 export default class Messages extends Model {
   @ForeignKey(() => Users)
   @Column(DataType.STRING)
-  userName!: string
+  userId!: string
 
   @Column(DataType.TEXT)
   messageContents!: string

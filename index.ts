@@ -4,16 +4,22 @@ import axios from "axios"
 import argon2 from "argon2"
 import { rateLimit } from "express-rate-limit"
 import cryptoRandomString from "crypto-random-string"
+
 import { Embed } from "./types/embeds"
 import { RequestUser, RequestUserSession } from "./types/express"
+import { AuthWebSocket } from "types/sockets"
+import { WebSocket } from "ws"
 
 import { NextFunction, Request, Response } from "express"
 import { AxiosError, AxiosResponse } from "axios"
 
 import config from "./config/main.json"
+
 import auth from "./lib/auth"
+import authSession from "./lib/authSession"
 import resolveEmbeds from "./lib/resolveEmbeds"
 import nodemailerLibrary from "./lib/mailer"
+
 import Messages from "./models/messages"
 import Users from "./models/users"
 import Sessions from "./models/sessions"
@@ -21,14 +27,15 @@ import Friends from "./models/friends"
 import Feedback from "./models/feedback"
 import Chats from "./models/chats"
 import ChatAssociations from "./models/chatAssociations"
-import authSession from "./lib/authSession"
 
 sequelize
 
 const express = require("express")
-
 const app = express()
 const port = 24555
+
+import { WebSocketServer } from "ws"
+const wss = new WebSocketServer({ port: port - 1 })
 
 const emailLibrary = new nodemailerLibrary()
 const limiter = rateLimit({
@@ -381,7 +388,7 @@ app.post("/api/message", auth, async (req: RequestUser, res: Response) => {
     if (messageText) {
       const message = await Messages.create({
         messageContents: messageText,
-        userName: req.user.id,
+        userId: req.user.id,
         reply: replyMessage,
         chatId: req.body.chatId
       })
@@ -428,6 +435,13 @@ app.post("/api/message", auth, async (req: RequestUser, res: Response) => {
           attributes: ["id", "username", "avatar", "status", "statusMessage"]
         })
       }
+      wss.clients.forEach((wsClient: WebSocket) => {
+        const test = users.find(
+          (user) => user.id === (wsClient as AuthWebSocket).user.id
+        )
+        if (test && test.id !== message.userId)
+          wsClient.send(JSON.stringify({ newMessage: message }))
+      })
       chat.dataValues.users = users
       chat.dataValues.lastRead = association?.lastRead
       getChats(req.user.id).then((chats) => {
@@ -1125,7 +1139,7 @@ app.delete(
     }
     const where = req.user.admin
       ? { id: req.params.messageId }
-      : { id: req.params.messageId, userName: req.user.id }
+      : { id: req.params.messageId, userId: req.user.id }
     await Messages.destroy({ where })
     const messages = await Messages.findAll({
       where: { chatId: message.chatId },
@@ -1281,7 +1295,7 @@ app.patch(
     const message = await Messages.findOne({
       where: {
         id: req.params.messageId,
-        userName: req.user.id
+        userId: req.user.id
       }
     })
     if (!message || !messageText) {
@@ -1481,6 +1495,33 @@ app.patch(
     })
   }
 )
+
+wss.on("connection", (ws: AuthWebSocket) => {
+  ws.on("error", console.error)
+
+  ws.on("message", async function message(data: string) {
+    const socketMessage = JSON.parse(data)
+    if (socketMessage.token) {
+      const session = await Sessions.findOne({
+        where: { token: socketMessage.token },
+        include: [
+          {
+            model: Users,
+            as: "user"
+          }
+        ]
+      })
+      if (!session || !session.user) {
+        console.log("Token auth failed")
+        ws.send(JSON.stringify({ authFail: "Access denied. Invalid token." }))
+        return ws.close()
+      }
+      ws.user = session.user
+      ws.send(JSON.stringify({ authSuccess: "Token accepted." }))
+    }
+    console.log("received: %s", socketMessage)
+  })
+})
 
 app.listen(port, () => {
   console.log(`ElectricS01-Website-Backend listening on port ${port}`)
