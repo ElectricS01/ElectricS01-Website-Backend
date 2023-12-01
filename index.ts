@@ -246,6 +246,18 @@ app.use(
   })
 )
 
+app.get("/api/user", auth, async (req: RequestUser, res: Response) => {
+  getChats(req.user.id).then((chatsList) => {
+    res.json({
+      chatsList,
+      ...req.user.toJSON(),
+      password: undefined,
+      emailToken: undefined,
+      updatedAt: undefined
+    })
+  })
+})
+
 app.get("/api/chat/:chatId", auth, async (req: RequestUser, res: Response) => {
   await getChat(req.params.chatId, req.user.id).then((chat) => {
     if (!chat) {
@@ -254,21 +266,6 @@ app.get("/api/chat/:chatId", auth, async (req: RequestUser, res: Response) => {
       })
     }
     return res.json(chat)
-  })
-})
-
-app.get("/api/chats", auth, async (req: RequestUser, res: Response) => {
-  getChats(req.user.id).then((chats) => {
-    res.json(chats)
-  })
-})
-
-app.get("/api/user", auth, async (req: RequestUser, res: Response) => {
-  res.json({
-    ...req.user.toJSON(),
-    password: undefined,
-    emailToken: undefined,
-    updatedAt: undefined
   })
 })
 
@@ -1486,6 +1483,8 @@ app.patch(
 )
 
 wss.on("connection", (ws: AuthWebSocket) => {
+  console.log("Socket opened")
+
   ws.on("error", console.error)
 
   ws.on("message", async function message(data: string) {
@@ -1501,14 +1500,27 @@ wss.on("connection", (ws: AuthWebSocket) => {
         ]
       })
       if (!session || !session.user) {
-        console.log("Token auth failed")
         ws.send(JSON.stringify({ authFail: "Access denied. Invalid token." }))
         return ws.close()
       }
       ws.user = session.user
       ws.send(JSON.stringify({ authSuccess: "Token accepted." }))
+      await session.user.update({ status: "online" })
+      wss.clients.forEach((wsClient: WebSocket) => {
+        if (
+          (wsClient as AuthWebSocket)?.user &&
+          (wsClient as AuthWebSocket).user.id !== ws.user.id
+        )
+          wsClient.send(JSON.stringify({ changeUser: ws.user }))
+      })
     }
-    console.log("received: %s", socketMessage)
+  })
+  ws.on("close", async () => {
+    await ws.user.update({ status: "offline" })
+    wss.clients.forEach((wsClient: WebSocket) => {
+      wsClient.send(JSON.stringify({ changeUser: ws.user }))
+    })
+    ws.close()
   })
 })
 
