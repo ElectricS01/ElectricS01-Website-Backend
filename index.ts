@@ -269,55 +269,6 @@ app.get("/api/chat/:chatId", auth, async (req: RequestUser, res: Response) => {
   })
 })
 
-app.get("/api/user/:userId", auth, async (req: RequestUser, res: Response) => {
-  if (!parseInt(req.params.userId)) {
-    res.status(400)
-    res.json({
-      message: "User requested does not exist"
-    })
-    return
-  }
-  const user = await Users.findOne({
-    where: {
-      id: req.params.userId
-    },
-    attributes: {
-      exclude: [
-        "email",
-        "password",
-        "emailVerified",
-        "emailToken",
-        "admin",
-        "saveSwitcher",
-        "switcherHistory",
-        "updatedAt"
-      ]
-    },
-    include: [
-      {
-        model: Friends,
-        as: "friend",
-        required: false,
-        where: {
-          userId: req.user.id,
-          friendId: parseInt(req.params.userId)
-        },
-        attributes: ["status"]
-      }
-    ]
-  })
-  if (!user) {
-    return res.status(400).json({
-      message: "User requested does not exist"
-    })
-  }
-  if (!user.dataValues.showCreated) {
-    user.dataValues.createdAt = null
-  }
-  user.dataValues.showCreated = undefined
-  return res.json(user)
-})
-
 app.get("/api/admin", auth, async (req: RequestUser, res: Response) => {
   if (!req.user.admin) {
     return res.status(403).json({
@@ -639,6 +590,65 @@ app.post("/api/reset-password", async (req: Request, res: Response) => {
       message: "Something went wrong"
     })
   }
+})
+
+app.post("/api/get-user", auth, async (req: RequestUser, res: Response) => {
+  if (!parseInt(req.body.userId) && !req.body.username) {
+    res.status(400)
+    res.json({
+      message: "User requested does not exist"
+    })
+    return
+  }
+  if (req.body.username) {
+    const user = await Users.findOne({
+      where: { username: req.body.username },
+      attributes: ["id"]
+    })
+    if (!user) {
+      return res.status(400).json({
+        message: "User requested does not exist or could not be found"
+      })
+    }
+    return res.json(user)
+  }
+  const user = await Users.findOne({
+    where: { id: req.body.userId },
+    attributes: {
+      exclude: [
+        "email",
+        "password",
+        "emailVerified",
+        "emailToken",
+        "admin",
+        "saveSwitcher",
+        "switcherHistory",
+        "updatedAt"
+      ]
+    },
+    include: [
+      {
+        model: Friends,
+        as: "friend",
+        required: false,
+        where: {
+          userId: req.user.id,
+          friendId: parseInt(req.body.userId)
+        },
+        attributes: ["status"]
+      }
+    ]
+  })
+  if (!user) {
+    return res.status(400).json({
+      message: "User requested does not exist or could not be found"
+    })
+  }
+  if (!user.dataValues.showCreated) {
+    user.dataValues.createdAt = null
+  }
+  user.dataValues.showCreated = undefined
+  return res.json(user)
 })
 
 app.post("/api/user-prop", auth, async (req: RequestUser, res: Response) => {
@@ -1516,10 +1526,13 @@ wss.on("connection", (ws: AuthWebSocket) => {
     }
   })
   ws.on("close", async () => {
-    await ws.user.update({ status: "offline" })
-    wss.clients.forEach((wsClient: WebSocket) => {
-      wsClient.send(JSON.stringify({ changeUser: ws.user }))
-    })
+    if (ws.user) {
+      await ws.user.update({ status: "offline" })
+      wss.clients.forEach((wsClient: WebSocket) => {
+        wsClient.send(JSON.stringify({ changeUser: ws.user }))
+      })
+    }
+    console.log("Socket closed")
     ws.close()
   })
 })
