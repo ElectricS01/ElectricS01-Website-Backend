@@ -103,7 +103,7 @@ async function getChat(chatId: string, userId: number) {
   })
   let users = chatAssociations.map((association) => association.user)
   if (users.length === 0) {
-    users = users = await Users.findAll({
+    users = await Users.findAll({
       attributes: [
         "id",
         "username",
@@ -290,23 +290,21 @@ app.get("/api/sessions", auth, async (req: RequestUser, res: Response) => {
 
 app.post("/api/message", auth, async (req: RequestUser, res: Response) => {
   try {
-    if (req.body.messageContents.length < 1) {
-      res.status(400).json({
+    const messageText = req.body.messageContents.trim()
+    if (messageText < 1) {
+      return res.status(400).json({
         message: "Message has no content"
       })
-      return
     }
-    if (req.body.messageContents.length > 10000) {
-      res.status(400).json({
+    if (messageText > 10000) {
+      return res.status(400).json({
         message: "Message too long"
       })
-      return
     }
     if (!req.body.chatId) {
-      res.status(400).json({
+      return res.status(400).json({
         message: "Chat not specified"
       })
-      return
     }
     const chat = await Chats.findOne({
       where: {
@@ -314,16 +312,14 @@ app.post("/api/message", auth, async (req: RequestUser, res: Response) => {
       }
     })
     if (!chat) {
-      res.status(400).json({
+      return res.status(400).json({
         message: "Chat does not exist"
       })
-      return
     }
     if (chat.requireVerification && !req.user.emailVerified) {
-      res.status(400).json({
+      return res.status(400).json({
         message: "User not verified"
       })
-      return
     }
     const association = await ChatAssociations.findOne({
       where: {
@@ -331,63 +327,61 @@ app.post("/api/message", auth, async (req: RequestUser, res: Response) => {
         userId: req.user.id
       }
     })
-    const messageText = req.body.messageContents.trim()
-    const replyMessage = req.body?.reply
-    if (messageText) {
-      const message = await Messages.create({
-        messageContents: messageText,
-        userId: req.user.id,
-        reply: replyMessage,
-        chatId: req.body.chatId
-      })
-      await resolveEmbeds(req, message)
-      await chat.update({
-        latest: Date.now()
-      })
-      const messages = await Messages.findAll({
-        where: { chatId: req.body.chatId },
-        include: [
-          {
-            model: Users,
-            as: "user",
-            attributes: ["id", "username", "avatar"]
-          }
-        ]
-      })
-      const lastMessage = messages.splice(-1)[0]
-      await association?.update({
-        lastRead: messages.length
-      })
-      const chatAssociations = await ChatAssociations.findAll({
-        where: { chatId: req.body.chatId },
-        include: [
-          {
-            model: Users,
-            as: "user",
-            attributes: ["id", "username", "avatar", "status", "statusMessage"]
-          }
-        ]
-      })
-      let users = chatAssociations.map((association) => association.user)
-      if (users.length === 0) {
-        users = users = await Users.findAll({
+    const replyMessage = req.body.reply
+    const message = await Messages.create({
+      messageContents: messageText,
+      userId: req.user.id,
+      reply: replyMessage,
+      chatId: req.body.chatId
+    })
+    await resolveEmbeds(req, message)
+    await chat.update({
+      latest: Date.now()
+    })
+    const messages = await Messages.findAll({
+      where: { chatId: req.body.chatId },
+      include: [
+        {
+          model: Users,
+          as: "user",
+          attributes: ["id", "username", "avatar"]
+        }
+      ]
+    })
+    const lastMessage = messages.splice(-1)[0]
+    await association?.update({
+      lastRead: messages.length
+    })
+    const chatAssociations = await ChatAssociations.findAll({
+      where: { chatId: req.body.chatId },
+      include: [
+        {
+          model: Users,
+          as: "user",
           attributes: ["id", "username", "avatar", "status", "statusMessage"]
-        })
-      }
-      wss.clients.forEach((wsClient: WebSocket) => {
-        const user = users.find(
-          (user) => user.id === (wsClient as AuthWebSocket).user?.id
-        )
-        if (user && user.id !== message.userId)
-          wsClient.send(JSON.stringify({ newMessage: lastMessage }))
-      })
-      getChats(req.user.id).then((chats) => {
-        res.json({ lastMessage, chats })
+        }
+      ]
+    })
+    let users = chatAssociations.map((association) => association.user)
+    if (users.length === 0) {
+      users = await Users.findAll({
+        attributes: ["id", "username", "avatar", "status", "statusMessage"]
       })
     }
+    wss.clients.forEach((wsClient: WebSocket) => {
+      const user = users.find(
+        (user) => user.id === (wsClient as AuthWebSocket).user?.id
+      )
+      if (user && user.id !== message.userId)
+        wsClient.send(JSON.stringify({ newMessage: lastMessage }))
+    })
+    getChats(req.user.id).then((chats) => {
+      res.json({ lastMessage, chats })
+    })
+    return
   } catch (e) {
     console.log(e)
-    res.status(500).json({
+    return res.status(500).json({
       message: "Something went wrong"
     })
   }
@@ -1481,7 +1475,7 @@ app.patch(
     })
     let users = chatAssociations.map((association) => association.user)
     if (users.length === 0) {
-      users = users = await Users.findAll({
+      users = await Users.findAll({
         attributes: ["id", "username", "avatar", "status", "statusMessage"]
       })
     }

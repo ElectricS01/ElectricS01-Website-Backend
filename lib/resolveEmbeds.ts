@@ -2,9 +2,9 @@
 import { Request } from "express"
 import Messages from "../models/messages"
 import { AxiosResponse } from "axios"
-const axios = require("axios")
+import axios from "axios"
+import cryptoRandomString from "crypto-random-string"
 const ogs = require("open-graph-scraper")
-const cryptoRandomString = require("crypto-random-string")
 const blacklist = require("./blacklist.json")
 export default async function (req: Request, message: Messages) {
   return new Promise(async (resolve, reject) => {
@@ -12,7 +12,7 @@ export default async function (req: Request, message: Messages) {
       if (message.messageContents) {
         const regex = /(https?:\/\/\S+)/g
         let links: string[] = message.messageContents.match(regex) || []
-        if (links && links.length > 3) {
+        if (links.length > 3) {
           links = links.slice(0, 3)
         }
         let embeds = []
