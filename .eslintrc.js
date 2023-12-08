@@ -9,8 +9,10 @@ module.exports = {
   rules: {
     "array-element-newline": "off",
     curly: "off",
+    "dot-location": "off",
     "func-names": ["error", "as-needed"],
     "function-call-argument-newline": "off",
+    "function-paren-newline": "off",
     "id-length": "off",
     indent: "off",
     "max-depth": "off",
@@ -20,6 +22,7 @@ module.exports = {
     "max-statements": "off",
     "new-cap": "off",
     "no-console": "off",
+    "no-extra-parens": "off",
     "no-magic-numbers": "off",
     "no-ternary": "off",
     "no-undefined": "off",
@@ -34,6 +37,7 @@ module.exports = {
     "require-unicode-regexp": "off",
     semi: "off",
     "sort-imports": "off",
-    "sort-keys-fix/sort-keys-fix": "error"
+    "sort-keys-fix/sort-keys-fix": "error",
+    "space-before-function-paren": "off"
   }
 }

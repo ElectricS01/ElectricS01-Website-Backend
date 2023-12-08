@@ -1,4 +1,4 @@
-//Modified from https://github.com/Troplo/Colubrina/blob/main/backend/lib/resolveEmbeds.js
+// Modified from https://github.com/Troplo/Colubrina/blob/main/backend/lib/resolveEmbeds.js
 import axios, { AxiosResponse } from "axios"
 import cryptoRandomString from "crypto-random-string"
 import ogs, { ErrorResult, SuccessResult } from "open-graph-scraper"
