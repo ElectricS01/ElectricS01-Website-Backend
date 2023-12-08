@@ -7,10 +7,10 @@ module.exports = {
   plugins: ["@typescript-eslint", "sort-keys-fix"],
   root: true,
   rules: {
-    curly: "off",
+    "@stylistic/js/curly": "off",
     "func-names": ["error", "as-needed"],
     "id-length": "off",
-    indent: "off",
+    "@stylistic/js/indent": "off",
     "max-depth": "off",
     "max-lines": "off",
     "max-lines-per-function": "off",
