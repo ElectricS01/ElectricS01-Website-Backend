@@ -1,6 +1,6 @@
 import "reflect-metadata"
 import sequelize from "./db"
-import axios from "axios"
+import axios, { AxiosError, AxiosResponse } from "axios"
 import argon2 from "argon2"
 import { rateLimit } from "express-rate-limit"
 import cryptoRandomString from "crypto-random-string"
@@ -8,10 +8,9 @@ import cryptoRandomString from "crypto-random-string"
 import { Embed } from "./types/embeds"
 import { RequestUser, RequestUserSession } from "./types/express"
 import { AuthWebSocket } from "types/sockets"
-import { WebSocket } from "ws"
+import { WebSocket, WebSocketServer } from "ws"
 
 import { NextFunction, Request, Response } from "express"
-import { AxiosError, AxiosResponse } from "axios"
 
 import config from "./config/main.json"
 
@@ -28,24 +27,23 @@ import Feedback from "./models/feedback"
 import Chats from "./models/chats"
 import ChatAssociations from "./models/chatAssociations"
 
-sequelize
+sequelize.sync()
 
 const express = require("express")
 const app = express()
 const port = 24555
 
-import { WebSocketServer } from "ws"
 const wss = new WebSocketServer({ port: port - 1 })
 
 const emailLibrary = new nodemailerLibrary()
 const limiter = rateLimit({
-  windowMs: 5000,
-  limit: 3,
-  standardHeaders: true,
   legacyHeaders: false,
+  limit: 3,
   message: {
     message: "Too many requests, Slow Down!"
-  }
+  },
+  standardHeaders: true,
+  windowMs: 5000
 })
 
 async function getChat(chatId: string, userId: number) {
@@ -58,14 +56,14 @@ async function getChat(chatId: string, userId: number) {
     return null
   }
   chat.dataValues.messages = await Messages.findAll({
-    where: { chatId },
     include: [
       {
-        model: Users,
         as: "user",
-        attributes: ["id", "username", "avatar"]
+        attributes: ["id", "username", "avatar"],
+        model: Users
       }
-    ]
+    ],
+    where: { chatId }
   })
   const association = await ChatAssociations.findOne({
     where: {
@@ -74,10 +72,8 @@ async function getChat(chatId: string, userId: number) {
     }
   })
   const chatAssociations = await ChatAssociations.findAll({
-    where: { chatId },
     include: [
       {
-        model: Users,
         as: "user",
         attributes: [
           "id",
@@ -89,19 +85,21 @@ async function getChat(chatId: string, userId: number) {
         ],
         include: [
           {
-            model: Friends,
             as: "friend",
+            attributes: ["status"],
+            model: Friends,
             required: false,
             where: {
               userId
-            },
-            attributes: ["status"]
+            }
           }
-        ]
+        ],
+        model: Users
       }
-    ]
+    ],
+    where: { chatId }
   })
-  let users = chatAssociations.map((association) => association.user)
+  let users = chatAssociations.map((mapAssociation) => mapAssociation.user)
   if (users.length === 0) {
     users = await Users.findAll({
       attributes: [
@@ -114,13 +112,13 @@ async function getChat(chatId: string, userId: number) {
       ],
       include: [
         {
-          model: Friends,
           as: "friend",
+          attributes: ["status"],
+          model: Friends,
           required: false,
           where: {
             userId
-          },
-          attributes: ["status"]
+          }
         }
       ]
     })
@@ -145,13 +143,13 @@ async function getChats(userId: number) {
     ],
     include: [
       {
+        attributes: [],
         model: ChatAssociations,
-        where: { userId },
-        attributes: []
+        where: { userId }
       },
       {
-        model: Users,
-        attributes: ["id", "username", "avatar"]
+        attributes: ["id", "username", "avatar"],
+        model: Users
       }
     ]
   })
@@ -251,8 +249,8 @@ app.get("/api/user", auth, async (req: RequestUser, res: Response) => {
     res.json({
       chatsList,
       ...req.user.toJSON(),
-      password: undefined,
       emailToken: undefined,
+      password: undefined,
       updatedAt: undefined
     })
   })
@@ -280,10 +278,10 @@ app.get("/api/admin", auth, async (req: RequestUser, res: Response) => {
 
 app.get("/api/sessions", auth, async (req: RequestUser, res: Response) => {
   const sessions = await Sessions.findAll({
+    attributes: { exclude: ["token", "userId", "updatedAt"] },
     where: {
       userId: req.user.id
-    },
-    attributes: { exclude: ["token", "userId", "updatedAt"] }
+    }
   })
   res.json(sessions)
 })
@@ -329,38 +327,38 @@ app.post("/api/message", auth, async (req: RequestUser, res: Response) => {
     })
     const replyMessage = req.body.reply
     const message = await Messages.create({
+      chatId: req.body.chatId,
       messageContents: messageText,
-      userId: req.user.id,
       reply: replyMessage,
-      chatId: req.body.chatId
+      userId: req.user.id
     })
     await resolveEmbeds(message)
     await chat.update({
       latest: Date.now()
     })
     const messages = await Messages.findAll({
-      where: { chatId: req.body.chatId },
       include: [
         {
-          model: Users,
           as: "user",
-          attributes: ["id", "username", "avatar"]
+          attributes: ["id", "username", "avatar"],
+          model: Users
         }
-      ]
+      ],
+      where: { chatId: req.body.chatId }
     })
     const lastMessage = messages.splice(-1)[0]
     await association?.update({
       lastRead: messages.length
     })
     const chatAssociations = await ChatAssociations.findAll({
-      where: { chatId: req.body.chatId },
       include: [
         {
-          model: Users,
           as: "user",
-          attributes: ["id", "username", "avatar", "status", "statusMessage"]
+          attributes: ["id", "username", "avatar", "status", "statusMessage"],
+          model: Users
         }
-      ]
+      ],
+      where: { chatId: req.body.chatId }
     })
     let users = chatAssociations.map((association) => association.user)
     if (users.length === 0) {
@@ -370,13 +368,13 @@ app.post("/api/message", auth, async (req: RequestUser, res: Response) => {
     }
     wss.clients.forEach((wsClient: WebSocket) => {
       const user = users.find(
-        (user) => user.id === (wsClient as AuthWebSocket).user?.id
+        (findUser) => findUser.id === (wsClient as AuthWebSocket).user?.id
       )
       if (user && user.id !== message.userId)
         wsClient.send(JSON.stringify({ newMessage: lastMessage }))
     })
     getChats(req.user.id).then((chats) => {
-      res.json({ lastMessage, chats })
+      res.json({ chats, lastMessage })
     })
     return
   } catch (e) {
@@ -430,20 +428,20 @@ app.post("/api/create-chat", auth, async (req: RequestUser, res: Response) => {
     })
     return
   }
-  const chat = await Chats.create({
-    name: req.body.name,
+  const newChat = await Chats.create({
     description: req.body.description,
     icon: req.body.icon,
+    latest: Date.now(),
+    name: req.body.name,
     owner: req.user.id,
-    requireVerification: req.body.requireVerification,
-    latest: Date.now()
+    requireVerification: req.body.requireVerification
   })
   await ChatAssociations.create({
-    chatId: chat.id,
-    userId: chat.owner,
-    type: "Owner"
+    chatId: newChat.id,
+    type: "Owner",
+    userId: newChat.owner
   })
-  getChat(chat.id, req.user.id).then((chat) => {
+  getChat(newChat.id, req.user.id).then((chat) => {
     getChats(req.user.id).then((chats) => {
       res.json({ chat, chats })
     })
@@ -487,12 +485,12 @@ app.post("/api/register", async (req: Request, res: Response) => {
       return
     }
     const user = await Users.create({
-      username: req.body.username,
-      password: await argon2.hash(req.body.password),
       email: req.body.email,
       emailToken: cryptoRandomString({
         length: 128
-      })
+      }),
+      password: await argon2.hash(req.body.password),
+      username: req.body.username
     })
     emailLibrary
       .sendEmail(
@@ -505,9 +503,9 @@ app.post("/api/register", async (req: Request, res: Response) => {
         console.log("Error occurred while sending email:", e)
       })
     const session = await Sessions.create({
-      userId: user.id,
       token: cryptoRandomString({ length: 128 }),
-      userAgent: req.body.userAgent
+      userAgent: req.body.userAgent,
+      userId: user.id
     })
     res.json({ token: session.token })
   } catch (e) {
@@ -532,22 +530,26 @@ app.post("/api/login", async (req: Request, res: Response) => {
         username: req.body.username
       }
     })
-    if (!user) return res.status(401).json({ message: "User not found" })
+    if (!user) {
+      res.status(401).json({ message: "User not found" })
+      return
+    }
     if (!(await argon2.verify(user.password, req.body.password))) {
-      return res.status(401).json({ message: "Incorrect password" })
+      res.status(401).json({ message: "Incorrect password" })
+      return
     }
     const session = await Sessions.create({
-      userId: user.id,
       token: cryptoRandomString({ length: 128 }),
-      userAgent: req.body.userAgent
+      userAgent: req.body.userAgent,
+      userId: user.id
     })
-    return res.json({
+    res.json({
       token: session.token,
       user
     })
   } catch (e) {
     console.log(e)
-    return res.status(500).json({
+    res.status(500).json({
       message: "Something went wrong"
     })
   }
@@ -592,8 +594,8 @@ app.post("/api/get-user", auth, async (req: RequestUser, res: Response) => {
   }
   if (req.body.username) {
     const user = await Users.findOne({
-      where: { username: req.body.username },
-      attributes: ["id"]
+      attributes: ["id"],
+      where: { username: req.body.username }
     })
     if (!user) {
       return res.status(400).json({
@@ -603,7 +605,6 @@ app.post("/api/get-user", auth, async (req: RequestUser, res: Response) => {
     return res.json(user)
   }
   const user = await Users.findOne({
-    where: { id: req.body.userId },
     attributes: {
       exclude: [
         "email",
@@ -618,16 +619,17 @@ app.post("/api/get-user", auth, async (req: RequestUser, res: Response) => {
     },
     include: [
       {
-        model: Friends,
         as: "friend",
+        attributes: ["status"],
+        model: Friends,
         required: false,
         where: {
-          userId: req.user.id,
-          friendId: parseInt(req.body.userId)
-        },
-        attributes: ["status"]
+          friendId: parseInt(req.body.userId),
+          userId: req.user.id
+        }
       }
-    ]
+    ],
+    where: { id: req.body.userId }
   })
   if (!user) {
     return res.status(400).json({
@@ -721,9 +723,10 @@ app.post(
   auth,
   async (req: RequestUser, res: Response) => {
     if (req.user.id === parseInt(req.params.userId)) {
-      return res.status(400).json({
+      res.status(400).json({
         message: "You can't friend yourself"
       })
+      return
     }
     const user = await Users.findOne({
       where: {
@@ -731,42 +734,45 @@ app.post(
       }
     })
     if (!user) {
-      return res.status(400).json({
+      res.status(400).json({
         message: "This user does not exist"
       })
+      return
     }
     const friend = await Friends.findOne({
       where: {
-        userId: req.user.id,
-        friendId: user.id
+        friendId: user.id,
+        userId: req.user.id
       }
     })
     if (!friend) {
       await Friends.create({
-        userId: req.user.id,
-        friendId: user.id
+        friendId: user.id,
+        userId: req.user.id
       })
       await Friends.create({
-        userId: user.id,
         friendId: req.user.id,
-        status: "incoming"
+        status: "incoming",
+        userId: user.id
       })
-      return res.sendStatus(204)
+      res.sendStatus(204)
+      return
     } else if (!user.friendRequests && !friend.status) {
-      return res.status(400).json({
+      res.status(400).json({
         message: "This user does not accept friend request"
       })
+      return
     } else if (friend.status === "accepted" || friend.status === "pending") {
       await Friends.destroy({
         where: {
-          userId: req.user.id,
-          friendId: user.id
+          friendId: user.id,
+          userId: req.user.id
         }
       })
       await Friends.destroy({
         where: {
-          userId: user.id,
-          friendId: req.user.id
+          friendId: req.user.id,
+          userId: user.id
         }
       })
     } else if (friend.status === "incoming") {
@@ -774,8 +780,8 @@ app.post(
         { status: "accepted" },
         {
           where: {
-            userId: req.user.id,
-            friendId: user.id
+            friendId: user.id,
+            userId: req.user.id
           }
         }
       )
@@ -783,13 +789,13 @@ app.post(
         { status: "accepted" },
         {
           where: {
-            userId: user.id,
-            friendId: req.user.id
+            friendId: req.user.id,
+            userId: user.id
           }
         }
       )
     }
-    return res.sendStatus(204)
+    res.sendStatus(204)
   }
 )
 
@@ -808,14 +814,16 @@ app.post(
       }
     })
     if (!user || !chat) {
-      return res.status(400).json({
+      res.status(400).json({
         message: "This user or chat does not exist"
       })
+      return
     }
     if (chat.owner !== req.user.id) {
-      return res.status(400).json({
+      res.status(400).json({
         message: "You are not allowed to remove this user"
       })
+      return
     }
     const association = await ChatAssociations.findOne({
       where: {
@@ -824,9 +832,10 @@ app.post(
       }
     })
     if (!association) {
-      return res.status(400).json({
+      res.status(400).json({
         message: "This user is not in this chat"
       })
+      return
     }
     await ChatAssociations.destroy({
       where: {
@@ -838,26 +847,27 @@ app.post(
         res.json({ chat, chats })
       })
     })
-    return
   }
 )
 
 app.post("/api/feedback", auth, async (req: RequestUser, res: Response) => {
   if (req.body.feedback.length < 1) {
-    return res.status(400).json({
+    res.status(400).json({
       message: "Feedback has no content"
     })
+    return
   }
   if (req.body.feedback.length > 500) {
-    return res.status(400).json({
+    res.status(400).json({
       message: "Feedback too long"
     })
+    return
   }
   await Feedback.create({
     feedback: req.body.feedback,
     userId: req.user.id
   })
-  return res.sendStatus(204)
+  res.sendStatus(204)
 })
 
 app.post("/api/history", auth, async (req: RequestUser, res: Response) => {
@@ -879,14 +889,15 @@ app.post("/api/history", auth, async (req: RequestUser, res: Response) => {
     }
   })
   if (!user) {
-    return res.status(400).json({
+    res.status(400).json({
       message: "This user does not exist"
     })
+    return
   }
   await user.update({
     switcherHistory: req.body.history
   })
-  return res.sendStatus(204)
+  res.sendStatus(204)
 })
 
 app.post(
@@ -949,8 +960,8 @@ app.post("/api/verify", auth, async (req: RequestUser, res: Response) => {
     })
   }
   await user.update({
-    emailVerified: true,
-    emailToken: false
+    emailToken: false,
+    emailVerified: true
   })
   return res.sendStatus(204)
 })
@@ -985,14 +996,14 @@ app.post(
     const currentChat =
       (await Chats.findOne({
         where: {
-          owner: req.user.id,
-          name: otherUser.username
+          name: otherUser.username,
+          owner: req.user.id
         }
       })) ||
       (await Chats.findOne({
         where: {
-          owner: otherUser.id,
-          name: req.user.username
+          name: req.user.username,
+          owner: otherUser.id
         }
       }))
     if (currentChat) {
@@ -1002,23 +1013,12 @@ app.post(
         })
       })
     } else {
-      const otherUser = await Users.findOne({
-        where: {
-          id: req.params.userId
-        }
-      })
-      if (!otherUser) {
-        res.status(400).json({
-          message: "User does not exist"
-        })
-        return
-      }
       const createChat = await Chats.create({
-        name: otherUser.username,
         icon: otherUser.avatar,
+        latest: Date.now(),
+        name: otherUser.username,
         owner: req.user.id,
         requireVerification: false,
-        latest: Date.now(),
         type: 1
       })
       await ChatAssociations.create({
@@ -1055,14 +1055,14 @@ app.post("/api/read-new/:id", auth, async (req: RequestUser, res: Response) => {
     })
   }
   chat.dataValues.messages = await Messages.findAll({
-    where: { chatId: req.params.id },
     include: [
       {
-        model: Users,
         as: "user",
-        attributes: ["id", "username", "avatar"]
+        attributes: ["id", "username", "avatar"],
+        model: Users
       }
-    ]
+    ],
+    where: { chatId: req.params.id }
   })
   const association = await ChatAssociations.findOne({
     where: {
@@ -1124,14 +1124,14 @@ app.delete(
       : { id: req.params.messageId, userId: req.user.id }
     await Messages.destroy({ where })
     const messages = await Messages.findAll({
-      where: { chatId: message.chatId },
       include: [
         {
-          model: Users,
           as: "user",
-          attributes: ["id", "username", "avatar"]
+          attributes: ["id", "username", "avatar"],
+          model: Users
         }
-      ]
+      ],
+      where: { chatId: message.chatId }
     })
     res.json(messages)
   }
@@ -1215,7 +1215,7 @@ app.delete(
       return
     }
     await feedback.destroy()
-    return res.json({ message: "Feedback has been deleted" })
+    res.json({ message: "Feedback has been deleted" })
   }
 )
 
@@ -1255,8 +1255,8 @@ app.delete(
   async (req: RequestUser, res: Response) => {
     const session = await Sessions.findOne({
       where: {
-        userId: req.user.id,
-        id: req.params.id
+        id: req.params.id,
+        userId: req.user.id
       }
     })
     if (!session) {
@@ -1288,19 +1288,19 @@ app.patch(
     }
     if (messageText !== message.messageContents) {
       await message.update({
-        messageContents: messageText,
-        edited: true
+        edited: true,
+        messageContents: messageText
       })
       resolveEmbeds(message).then(async () => {
         const messages = await Messages.findAll({
-          where: { chatId: message.chatId },
           include: [
             {
-              model: Users,
               as: "user",
-              attributes: ["id", "username", "avatar"]
+              attributes: ["id", "username", "avatar"],
+              model: Users
             }
-          ]
+          ],
+          where: { chatId: message.chatId }
         })
         res.json(messages)
       })
@@ -1338,7 +1338,7 @@ app.patch(
     const users = await Users.findAll({
       attributes: ["id", "username", "avatar", "status", "statusMessage"]
     })
-    res.json({ users, statusMessage: user.statusMessage })
+    res.json({ statusMessage: user.statusMessage, users })
   }
 )
 
@@ -1427,20 +1427,20 @@ app.patch(
       return
     }
     await chat.update({
-      name: req.body.name,
       description: req.body.description,
       icon: req.body.icon,
+      name: req.body.name,
       requireVerification: req.body.requireVerification
     })
     chat.dataValues.messages = await Messages.findAll({
-      where: { chatId: req.params.chat },
       include: [
         {
-          model: Users,
           as: "user",
-          attributes: ["id", "username", "avatar"]
+          attributes: ["id", "username", "avatar"],
+          model: Users
         }
-      ]
+      ],
+      where: { chatId: req.params.chat }
     })
     for (const user of req.body.users) {
       const checkUser = await Users.findOne({
@@ -1456,14 +1456,14 @@ app.patch(
       }
     }
     const chatAssociations = await ChatAssociations.findAll({
-      where: { chatId: req.params.chat },
       include: [
         {
-          model: Users,
           as: "user",
-          attributes: ["id", "username", "avatar", "status", "statusMessage"]
+          attributes: ["id", "username", "avatar", "status", "statusMessage"],
+          model: Users
         }
-      ]
+      ],
+      where: { chatId: req.params.chat }
     })
     let users = chatAssociations.map((association) => association.user)
     if (users.length === 0) {
@@ -1487,13 +1487,13 @@ wss.on("connection", (ws: AuthWebSocket) => {
     const socketMessage = JSON.parse(data)
     if (socketMessage.token) {
       const session = await Sessions.findOne({
-        where: { token: socketMessage.token },
         include: [
           {
-            model: Users,
-            as: "user"
+            as: "user",
+            model: Users
           }
-        ]
+        ],
+        where: { token: socketMessage.token }
       })
       if (!session || !session.user) {
         ws.send(JSON.stringify({ authFail: "Access denied. Invalid token." }))

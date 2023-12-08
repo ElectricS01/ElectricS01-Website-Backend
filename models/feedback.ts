@@ -13,14 +13,14 @@ import Users from "./users"
 export default class Feedback extends Model {
   @ForeignKey(() => Users)
   @Column({
-    type: DataType.INTEGER,
-    allowNull: false
+    allowNull: false,
+    type: DataType.INTEGER
   })
   userId!: string
 
   @Column({
-    type: DataType.STRING,
-    allowNull: false
+    allowNull: false,
+    type: DataType.STRING
   })
   feedback!: string
 }

@@ -6,15 +6,15 @@ import {
   Model,
   Table
 } from "sequelize-typescript"
-import Users from "./users"
 import Chats from "./chats"
+import Users from "./users"
 
 @Table
 export default class ChatAssociations extends Model {
   @ForeignKey(() => Users)
   @Column({
-    type: DataType.INTEGER,
-    allowNull: false
+    allowNull: false,
+    type: DataType.INTEGER
   })
   userId!: number
 
@@ -23,8 +23,8 @@ export default class ChatAssociations extends Model {
 
   @ForeignKey(() => Chats)
   @Column({
-    type: DataType.INTEGER,
-    allowNull: false
+    allowNull: false,
+    type: DataType.INTEGER
   })
   chatId!: number
 
@@ -32,16 +32,16 @@ export default class ChatAssociations extends Model {
   chat!: Chats
 
   @Column({
-    type: DataType.STRING,
     allowNull: false,
-    defaultValue: "Member"
+    defaultValue: "Member",
+    type: DataType.STRING
   })
   type!: string
 
   @Column({
-    type: DataType.STRING,
     allowNull: false,
-    defaultValue: -1
+    defaultValue: -1,
+    type: DataType.STRING
   })
   lastRead!: number
 }

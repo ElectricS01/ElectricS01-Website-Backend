@@ -1,18 +1,16 @@
-
-
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
-  async up(queryInterface, Sequelize) {
-    await queryInterface.addColumn("Users", "saveSwitcher", {
-      type: Sequelize.BOOLEAN,
-      defaultValue: true
-    })
-    await queryInterface.addColumn("Users", "switcherHistory", {
-      type: Sequelize.JSON,
-      defaultValue: []
-    })
-  },
   async down(queryInterface) {
     await queryInterface.dropTable("SwitcherHistory")
+  },
+  async up(queryInterface, Sequelize) {
+    await queryInterface.addColumn("Users", "saveSwitcher", {
+      defaultValue: true,
+      type: Sequelize.BOOLEAN
+    })
+    await queryInterface.addColumn("Users", "switcherHistory", {
+      defaultValue: [],
+      type: Sequelize.JSON
+    })
   }
 }

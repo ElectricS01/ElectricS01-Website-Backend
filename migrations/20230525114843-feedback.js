@@ -1,31 +1,30 @@
-
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
+  async down(queryInterface) {
+    await queryInterface.dropTable("Feedback")
+  },
   async up(queryInterface, Sequelize) {
     await queryInterface.createTable("Feedback", {
+      createdAt: {
+        allowNull: false,
+        type: Sequelize.DATE
+      },
+      feedback: {
+        type: Sequelize.STRING
+      },
       id: {
         allowNull: false,
         autoIncrement: true,
         primaryKey: true,
         type: Sequelize.INTEGER
       },
-      userId: {
-        type: Sequelize.INTEGER
-      },
-      feedback: {
-        type: Sequelize.STRING
-      },
-      createdAt: {
-        allowNull: false,
-        type: Sequelize.DATE
-      },
       updatedAt: {
         allowNull: false,
         type: Sequelize.DATE
+      },
+      userId: {
+        type: Sequelize.INTEGER
       }
     })
-  },
-  async down(queryInterface) {
-    await queryInterface.dropTable("Feedback")
   }
 }

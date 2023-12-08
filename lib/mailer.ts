@@ -13,11 +13,11 @@ class NodemailerLibrary {
 
   constructor() {
     const options = {
-      host: config.emailService,
       auth: {
-        user: config.emailUsername,
-        pass: config.emailPassword
+        pass: config.emailPassword,
+        user: config.emailUsername
       },
+      host: config.emailService,
       port: Number(config.emailPort),
       secure: config.emailSecure === "true"
     }
@@ -30,12 +30,12 @@ class NodemailerLibrary {
     to: string,
     subject: string,
     text: string
-  ): Promise<any> {
+  ): Promise<string> {
     const mailOptions: MailOptions = {
       from,
-      to,
       subject,
-      text
+      text,
+      to
     }
 
     return new Promise((resolve, reject) => {

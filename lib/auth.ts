@@ -1,9 +1,9 @@
-import Sessions from "../models/sessions"
-import Users from "../models/users"
 import { NextFunction, Response } from "express"
 import { RequestUser } from "../types/express"
+import Sessions from "../models/sessions"
+import Users from "../models/users"
 
-export default async function (
+export default async function auth(
   req: RequestUser,
   res: Response,
   next: NextFunction
@@ -11,13 +11,13 @@ export default async function (
   const token = req.header("Authorization")
   if (!token) return res.status(401).send("Access denied. No token provided.")
   const session = await Sessions.findOne({
-    where: { token },
     include: [
       {
-        model: Users,
-        as: "user"
+        as: "user",
+        model: Users
       }
-    ]
+    ],
+    where: { token }
   })
   if (!session || !session.user)
     return res.status(401).send("Access denied. Invalid token.")

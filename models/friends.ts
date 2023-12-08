@@ -11,8 +11,8 @@ export default class Friends extends Model {
 
   @Column({
     allowNull: false,
-    type: DataType.STRING,
-    defaultValue: "pending"
+    defaultValue: "pending",
+    type: DataType.STRING
   })
   status!: string
 

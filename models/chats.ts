@@ -7,14 +7,14 @@ import {
   Model,
   Table
 } from "sequelize-typescript"
-import Users from "./users"
 import ChatAssociations from "./chatAssociations"
+import Users from "./users"
 
 @Table
 export default class Chats extends Model {
   @Column({
-    type: DataType.STRING,
-    allowNull: false
+    allowNull: false,
+    type: DataType.STRING
   })
   name!: string
 
@@ -26,27 +26,27 @@ export default class Chats extends Model {
 
   @ForeignKey(() => Users)
   @Column({
-    type: DataType.INTEGER,
-    allowNull: false
+    allowNull: false,
+    type: DataType.INTEGER
   })
   owner!: number
 
   @Column({
-    type: DataType.BOOLEAN,
-    allowNull: false
+    allowNull: false,
+    type: DataType.BOOLEAN
   })
   requireVerification!: boolean
 
   @Column({
-    type: DataType.DATE,
-    allowNull: false
+    allowNull: false,
+    type: DataType.DATE
   })
   latest!: boolean
 
   @Column({
     allowNull: false,
-    type: DataType.INTEGER,
-    defaultValue: 0
+    defaultValue: 0,
+    type: DataType.INTEGER
   })
   type!: number
 
@@ -54,15 +54,15 @@ export default class Chats extends Model {
   associations!: ChatAssociations[]
 
   @BelongsTo(() => Users, {
-    foreignKey: "owner",
-    as: "ownerDetails" // Provide the alias used in the association
+    as: "ownerDetails",
+    foreignKey: "owner"
   })
   ownerDetails!: Users
 
   @Column({
     allowNull: false,
-    type: DataType.STRING,
-    defaultValue: "Member"
+    defaultValue: "Member",
+    type: DataType.STRING
   })
   allowInvite!: string
 }

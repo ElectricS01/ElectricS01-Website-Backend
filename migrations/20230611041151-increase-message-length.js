@@ -1,5 +1,3 @@
-
-
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
   async up(queryInterface, Sequelize) {
@@ -7,8 +5,8 @@ module.exports = {
       type: Sequelize.TEXT
     })
     await queryInterface.changeColumn("Chats", "description", {
-      type: Sequelize.TEXT,
-      defaultValue: "This is a new chat"
+      defaultValue: "This is a new chat",
+      type: Sequelize.TEXT
     })
   }
 }
