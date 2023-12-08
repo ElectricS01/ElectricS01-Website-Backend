@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "nodemon",
     "prod": "ts-node-esm index.ts",
-    "lint": "eslint --ext .js,.ts --ignore-path .gitignore --fix ./"
+    "lint": "eslint --ext .js,.ts --ignore-path .gitignore --fix ./",
+    "lint-no-fix": "eslint --ext .js,.ts --ignore-path .gitignore ./"
   },
   "repository": "https://github.com/ElectricS01/ElectricS01-Website-Backend.git",
   "author": "ElectricS01 <103579308+ElectricS01@users.noreply.github.com>",

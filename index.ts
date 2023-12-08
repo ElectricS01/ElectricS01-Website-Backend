@@ -46,7 +46,7 @@ const limiter = rateLimit({
   windowMs: 5000
 })
 
-async function getChat(chatId: string, userId: number) {
+const getChat = async function (chatId: string, userId: number) {
   const chat = await Chats.findOne({
     where: {
       id: chatId
@@ -128,7 +128,7 @@ async function getChat(chatId: string, userId: number) {
   return chat
 }
 
-async function getChats(userId: number) {
+const getChats = async function (userId: number) {
   const chats1 = await Chats.findAll({
     attributes: [
       "id",
@@ -172,13 +172,13 @@ async function getChats(userId: number) {
   return [...chats1, ...chats2]
 }
 
-async function checkImage(url: string) {
+const checkImage = async function (url: string) {
   try {
     const response = await axios.head(url)
     const contentType = response.headers["content-type"]
     return contentType.startsWith("image/")
-  } catch (e: any) {
-    console.error("Error occurred:", e.message)
+  } catch (e) {
+    console.error("Error occurred:", e)
     return false
   }
 }
@@ -196,17 +196,19 @@ app.get(
         }
       })
       if (!message) {
-        return res.status(400).json({
+        res.status(400).json({
           message: "Failed to embed"
         })
+        return
       }
       const embed = message.embeds.find(
         (e: Embed) => e.securityToken === req.params.securityToken
       )
       if (!embed) {
-        return res.status(400).json({
+        res.status(400).json({
           message: "Failed to embed"
         })
+        return
       }
       await axios
         .get(embed.link, {
@@ -224,7 +226,7 @@ app.get(
           res.status(404).end()
         })
     } catch (e) {
-      return next(e)
+      next(e)
     }
   }
 )
@@ -244,7 +246,7 @@ app.use(
   })
 )
 
-app.get("/api/user", auth, async (req: RequestUser, res: Response) => {
+app.get("/api/user", auth, (req: RequestUser, res: Response) => {
   getChats(req.user.id).then((chatsList) => {
     res.json({
       chatsList,
@@ -290,19 +292,22 @@ app.post("/api/message", auth, async (req: RequestUser, res: Response) => {
   try {
     const messageText = req.body.messageContents.trim()
     if (messageText < 1) {
-      return res.status(400).json({
+      res.status(400).json({
         message: "Message has no content"
       })
+      return
     }
     if (messageText > 10000) {
-      return res.status(400).json({
+      res.status(400).json({
         message: "Message too long"
       })
+      return
     }
     if (!req.body.chatId) {
-      return res.status(400).json({
+      res.status(400).json({
         message: "Chat not specified"
       })
+      return
     }
     const chat = await Chats.findOne({
       where: {
@@ -310,14 +315,16 @@ app.post("/api/message", auth, async (req: RequestUser, res: Response) => {
       }
     })
     if (!chat) {
-      return res.status(400).json({
+      res.status(400).json({
         message: "Chat does not exist"
       })
+      return
     }
     if (chat.requireVerification && !req.user.emailVerified) {
-      return res.status(400).json({
+      res.status(400).json({
         message: "User not verified"
       })
+      return
     }
     const association = await ChatAssociations.findOne({
       where: {
@@ -346,7 +353,7 @@ app.post("/api/message", auth, async (req: RequestUser, res: Response) => {
       ],
       where: { chatId: req.body.chatId }
     })
-    const lastMessage = messages.splice(-1)[0]
+    const [lastMessage] = messages.splice(-1)
     await association?.update({
       lastRead: messages.length
     })
@@ -360,7 +367,7 @@ app.post("/api/message", auth, async (req: RequestUser, res: Response) => {
       ],
       where: { chatId: req.body.chatId }
     })
-    let users = chatAssociations.map((association) => association.user)
+    let users = chatAssociations.map((mapAssociation) => mapAssociation.user)
     if (users.length === 0) {
       users = await Users.findAll({
         attributes: ["id", "username", "avatar", "status", "statusMessage"]
@@ -376,12 +383,12 @@ app.post("/api/message", auth, async (req: RequestUser, res: Response) => {
     getChats(req.user.id).then((chats) => {
       res.json({ chats, lastMessage })
     })
-    return
   } catch (e) {
     console.log(e)
-    return res.status(500).json({
+    res.status(500).json({
       message: "Something went wrong"
     })
+    return
   }
 })
 
@@ -585,7 +592,7 @@ app.post("/api/reset-password", async (req: Request, res: Response) => {
 })
 
 app.post("/api/get-user", auth, async (req: RequestUser, res: Response) => {
-  if (!parseInt(req.body.userId) && !req.body.username) {
+  if (!parseInt(req.body.userId, 10) && !req.body.username) {
     res.status(400)
     res.json({
       message: "User requested does not exist"
@@ -598,11 +605,13 @@ app.post("/api/get-user", auth, async (req: RequestUser, res: Response) => {
       where: { username: req.body.username }
     })
     if (!user) {
-      return res.status(400).json({
+      res.status(400).json({
         message: "User requested does not exist or could not be found"
       })
+      return
     }
-    return res.json(user)
+    res.json(user)
+    return
   }
   const user = await Users.findOne({
     attributes: {
@@ -624,7 +633,7 @@ app.post("/api/get-user", auth, async (req: RequestUser, res: Response) => {
         model: Friends,
         required: false,
         where: {
-          friendId: parseInt(req.body.userId),
+          friendId: parseInt(req.body.userId, 10),
           userId: req.user.id
         }
       }
@@ -632,15 +641,16 @@ app.post("/api/get-user", auth, async (req: RequestUser, res: Response) => {
     where: { id: req.body.userId }
   })
   if (!user) {
-    return res.status(400).json({
+    res.status(400).json({
       message: "User requested does not exist or could not be found"
     })
+    return
   }
   if (!user.dataValues.showCreated) {
     user.dataValues.createdAt = null
   }
   user.dataValues.showCreated = undefined
-  return res.json(user)
+  res.json(user)
 })
 
 app.post("/api/user-prop", auth, async (req: RequestUser, res: Response) => {
@@ -698,7 +708,7 @@ app.post("/api/user-prop", auth, async (req: RequestUser, res: Response) => {
   return res.sendStatus(204)
 })
 
-app.post("/api/avatar", auth, async (req: RequestUser, res: Response) => {
+app.post("/api/avatar", auth, (req: RequestUser, res: Response) => {
   axios
     .post(config.uploadLink, req.body, {
       headers: {
@@ -722,7 +732,7 @@ app.post(
   "/api/friend/:userId",
   auth,
   async (req: RequestUser, res: Response) => {
-    if (req.user.id === parseInt(req.params.userId)) {
+    if (req.user.id === parseInt(req.params.userId, 10)) {
       res.status(400).json({
         message: "You can't friend yourself"
       })
@@ -808,18 +818,18 @@ app.post(
         id: req.params.userId
       }
     })
-    const chat = await Chats.findOne({
+    const currentChat = await Chats.findOne({
       where: {
         id: req.params.chatId
       }
     })
-    if (!user || !chat) {
+    if (!user || !currentChat) {
       res.status(400).json({
         message: "This user or chat does not exist"
       })
       return
     }
-    if (chat.owner !== req.user.id) {
+    if (currentChat.owner !== req.user.id) {
       res.status(400).json({
         message: "You are not allowed to remove this user"
       })
@@ -827,7 +837,7 @@ app.post(
     }
     const association = await ChatAssociations.findOne({
       where: {
-        chatId: chat.id,
+        chatId: currentChat.id,
         userId: user.id
       }
     })
@@ -842,7 +852,7 @@ app.post(
         id: association.id
       }
     })
-    getChat(chat.id, req.user.id).then((chat) => {
+    getChat(currentChat.id, req.user.id).then((chat) => {
       getChats(req.user.id).then((chats) => {
         res.json({ chat, chats })
       })
@@ -1291,19 +1301,18 @@ app.patch(
         edited: true,
         messageContents: messageText
       })
-      resolveEmbeds(message).then(async () => {
-        const messages = await Messages.findAll({
-          include: [
-            {
-              as: "user",
-              attributes: ["id", "username", "avatar"],
-              model: Users
-            }
-          ],
-          where: { chatId: message.chatId }
-        })
-        res.json(messages)
+      await resolveEmbeds(message)
+      const messages = await Messages.findAll({
+        include: [
+          {
+            as: "user",
+            attributes: ["id", "username", "avatar"],
+            model: Users
+          }
+        ],
+        where: { chatId: message.chatId }
       })
+      res.json(messages)
     }
   }
 )
@@ -1366,7 +1375,7 @@ app.patch("/api/tetris", auth, async (req: RequestUser, res: Response) => {
       tetris: data
     })
   }
-  return res.sendStatus(204)
+  res.sendStatus(204)
 })
 
 app.patch(
@@ -1497,7 +1506,8 @@ wss.on("connection", (ws: AuthWebSocket) => {
       })
       if (!session || !session.user) {
         ws.send(JSON.stringify({ authFail: "Access denied. Invalid token." }))
-        return ws.close()
+        ws.close()
+        return
       }
       ws.user = session.user
       ws.send(JSON.stringify({ authSuccess: "Token accepted." }))

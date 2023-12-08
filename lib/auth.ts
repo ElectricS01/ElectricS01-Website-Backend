@@ -19,8 +19,10 @@ export default async function auth(
     ],
     where: { token }
   })
-  if (!session || !session.user)
-    return res.status(401).send("Access denied. Invalid token.")
+  if (!session || !session.user) {
+    res.status(401).send("Access denied. Invalid token.")
+    return
+  }
   req.user = session.user
   return next()
 }
