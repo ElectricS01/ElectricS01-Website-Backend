@@ -1,6 +1,6 @@
 import Sessions from "../models/sessions"
 import Users from "../models/users"
-import { Response, NextFunction } from "express"
+import { NextFunction, Response } from "express"
 import { RequestUserSession } from "../types/express"
 
 export default async function (

@@ -6,10 +6,8 @@ const dbConfig: Record<string, unknown> =
 
 const sequelize = new Sequelize({
   ...dbConfig,
-  models: [__dirname + "/models"],
-  modelMatch: () => {
-    return true
-  }
+  models: [`${__dirname}/models`],
+  modelMatch: () => true
 })
 
 export default sequelize

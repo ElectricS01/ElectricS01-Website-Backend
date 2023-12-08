@@ -1,13 +1,13 @@
 import {
-  Model,
-  DataType,
   BelongsTo,
-  ForeignKey,
   Column,
+  DataType,
+  ForeignKey,
+  Model,
   Table
 } from "sequelize-typescript"
-import Users from "./users"
 import { Embed } from "../types/embeds"
+import Users from "./users"
 
 @Table
 export default class Messages extends Model {

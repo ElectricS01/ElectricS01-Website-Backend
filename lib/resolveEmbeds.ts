@@ -3,7 +3,7 @@ import Messages from "../models/messages"
 import { AxiosResponse } from "axios"
 import axios from "axios"
 import cryptoRandomString from "crypto-random-string"
-import ogs, { SuccessResult, ErrorResult } from "open-graph-scraper"
+import ogs, { ErrorResult, SuccessResult } from "open-graph-scraper"
 import blacklist from "./blacklist.json"
 export default async function (message: Messages) {
   try {
@@ -18,9 +18,9 @@ export default async function (message: Messages) {
         for (const [i, link] of links.entries()) {
           const linkURL = new URL(link)
           if ((blacklist as string[]).includes(linkURL.hostname)) {
-            console.log("Blacklisted link " + linkURL.hostname)
+            console.log(`Blacklisted link ${linkURL.hostname}`)
             embeds.push({
-              link: link,
+              link,
               type: "openGraph",
               openGraph: {
                 ogTitle: "Blacklisted link",
@@ -39,7 +39,7 @@ export default async function (message: Messages) {
               if (result?.result) {
                 embeds.push({
                   openGraph: result.result,
-                  link: link,
+                  link,
                   type: "openGraph"
                 })
               }
@@ -53,20 +53,14 @@ export default async function (message: Messages) {
                   }
                 })
                 .then((res: AxiosResponse) => {
-                  // if content type is image
+                  // If content type is image
                   if (res.headers["content-type"].startsWith("image/")) {
                     const securityToken = cryptoRandomString({ length: 32 })
                     embeds.push({
                       type: "image",
-                      link: link,
+                      link,
                       securityToken,
-                      mediaProxyLink:
-                        "/api/media-proxy/" +
-                        message.id +
-                        "/" +
-                        i +
-                        "/" +
-                        securityToken
+                      mediaProxyLink: `/api/media-proxy/${message.id}/${i}/${securityToken}`
                     })
                   }
                 })
@@ -78,7 +72,7 @@ export default async function (message: Messages) {
       }
       await Messages.update(
         {
-          embeds: embeds
+          embeds
         },
         {
           where: {
@@ -87,9 +81,8 @@ export default async function (message: Messages) {
         }
       )
       return embeds
-    } else {
-      return
     }
+    return
   } catch (e) {
     console.log(e)
     return

@@ -58,7 +58,7 @@ async function getChat(chatId: string, userId: number) {
     return null
   }
   chat.dataValues.messages = await Messages.findAll({
-    where: { chatId: chatId },
+    where: { chatId },
     include: [
       {
         model: Users,
@@ -69,12 +69,12 @@ async function getChat(chatId: string, userId: number) {
   })
   const association = await ChatAssociations.findOne({
     where: {
-      chatId: chatId,
-      userId: userId
+      chatId,
+      userId
     }
   })
   const chatAssociations = await ChatAssociations.findAll({
-    where: { chatId: chatId },
+    where: { chatId },
     include: [
       {
         model: Users,
@@ -93,7 +93,7 @@ async function getChat(chatId: string, userId: number) {
             as: "friend",
             required: false,
             where: {
-              userId: userId
+              userId
             },
             attributes: ["status"]
           }
@@ -118,7 +118,7 @@ async function getChat(chatId: string, userId: number) {
           as: "friend",
           required: false,
           where: {
-            userId: userId
+            userId
           },
           attributes: ["status"]
         }
@@ -146,7 +146,7 @@ async function getChats(userId: number) {
     include: [
       {
         model: ChatAssociations,
-        where: { userId: userId },
+        where: { userId },
         attributes: []
       },
       {
@@ -231,7 +231,7 @@ app.get(
   }
 )
 
-app.use(function (req: Request, res: Response, next: NextFunction) {
+app.use((req: Request, res: Response, next: NextFunction) => {
   if (req.method === "POST") {
     limiter(req, res, next)
   } else {
@@ -498,12 +498,8 @@ app.post("/api/register", async (req: Request, res: Response) => {
       .sendEmail(
         "support@electrics01.com",
         req.body.email,
-        "Hi " + user.username + ", Verify your email address",
-        "Hi " +
-          user.username +
-          ",\nPlease click the link below to verify your email address:\nhttps://electrics01.com/verify?token=" +
-          user.emailToken +
-          "\n\nIf you did not request this email, please ignore it.\n\nThanks,\nElectrics01 Support Team"
+        `Hi ${user.username}, Verify your email address`,
+        `Hi ${user.username},\nPlease click the link below to verify your email address:\nhttps://electrics01.com/verify?token=${user.emailToken}\n\nIf you did not request this email, please ignore it.\n\nThanks,\nElectrics01 Support Team`
       )
       .catch((e: AxiosError) => {
         console.log("Error occurred while sending email:", e)
@@ -921,12 +917,8 @@ app.post(
       .sendEmail(
         "support@electrics01.com",
         user.email,
-        "Hi " + user.username + ", Verify your email address",
-        "Hi " +
-          user.username +
-          ",\nPlease click the link below to verify your email address:\nhttps://electrics01.com/verify?token=" +
-          user.emailToken +
-          "\n\nIf you did not request this email, please ignore it.\n\nThanks,\nElectrics01 Support Team"
+        `Hi ${user.username}, Verify your email address`,
+        `Hi ${user.username},\nPlease click the link below to verify your email address:\nhttps://electrics01.com/verify?token=${user.emailToken}\n\nIf you did not request this email, please ignore it.\n\nThanks,\nElectrics01 Support Team`
       )
       .catch((e: AxiosError) => {
         console.log("Error occurred while sending email:", e)
@@ -1491,7 +1483,7 @@ wss.on("connection", (ws: AuthWebSocket) => {
 
   ws.on("error", console.error)
 
-  ws.on("message", async function message(data: string) {
+  ws.on("message", async (data: string) => {
     const socketMessage = JSON.parse(data)
     if (socketMessage.token) {
       const session = await Sessions.findOne({

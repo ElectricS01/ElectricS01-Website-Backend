@@ -1,4 +1,4 @@
-import { Table, Column, Model, DataType, HasMany } from "sequelize-typescript"
+import { Column, DataType, HasMany, Model, Table } from "sequelize-typescript"
 import Friends from "../models/friends"
 
 @Table
@@ -10,12 +10,12 @@ export default class Users extends Model {
   username!: string
 
   @Column({
-    type: DataType.STRING,
     allowNull: false,
+    type: DataType.STRING,
+    unique: true,
     validate: {
       isEmail: true
-    },
-    unique: true
+    }
   })
   email!: string
 
@@ -23,8 +23,8 @@ export default class Users extends Model {
   password!: string
 
   @Column({
-    type: DataType.BOOLEAN,
-    defaultValue: false
+    defaultValue: false,
+    type: DataType.BOOLEAN
   })
   emailVerified!: boolean
 
@@ -32,8 +32,8 @@ export default class Users extends Model {
   emailToken!: string
 
   @Column({
-    type: DataType.BOOLEAN,
-    defaultValue: false
+    defaultValue: false,
+    type: DataType.BOOLEAN
   })
   admin!: boolean
 
@@ -64,7 +64,7 @@ export default class Users extends Model {
   @Column(DataType.BOOLEAN)
   saveSwitcher!: boolean
 
-  @Column({ type: DataType.JSON, defaultValue: [] })
+  @Column({ defaultValue: [], type: DataType.JSON })
   switcherHistory!: boolean
 
   @Column(DataType.STRING)

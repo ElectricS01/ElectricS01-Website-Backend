@@ -1,9 +1,9 @@
 import {
-  Table,
   Column,
-  Model,
   DataType,
-  ForeignKey
+  ForeignKey,
+  Model,
+  Table
 } from "sequelize-typescript"
 import Users from "./users"
 

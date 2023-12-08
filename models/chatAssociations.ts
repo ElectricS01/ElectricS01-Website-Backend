@@ -1,10 +1,10 @@
 import {
-  Table,
+  BelongsTo,
   Column,
-  Model,
   DataType,
   ForeignKey,
-  BelongsTo
+  Model,
+  Table
 } from "sequelize-typescript"
 import Users from "./users"
 import Chats from "./chats"
