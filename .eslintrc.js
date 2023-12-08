@@ -8,6 +8,7 @@ module.exports = {
   root: true,
   rules: {
     curly: "off",
+    "func-names": ["error", "as-needed"],
     "id-length": "off",
     indent: "off",
     "max-depth": "off",
@@ -23,9 +24,10 @@ module.exports = {
     "no-useless-return": "off",
     "one-var": "off",
     "prefer-named-capture-group": "off",
+    "quote-props": "off",
     "require-atomic-updates": "off",
     "require-unicode-regexp": "off",
     "sort-imports": "off",
-    "sort-keys-fix/sort-keys-fix": "warn"
+    "sort-keys-fix/sort-keys-fix": "error"
   }
 }
