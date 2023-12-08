@@ -334,7 +334,7 @@ app.post("/api/message", auth, async (req: RequestUser, res: Response) => {
       reply: replyMessage,
       chatId: req.body.chatId
     })
-    await resolveEmbeds(req, message)
+    await resolveEmbeds(message)
     await chat.update({
       latest: Date.now()
     })
@@ -1299,7 +1299,7 @@ app.patch(
         messageContents: messageText,
         edited: true
       })
-      resolveEmbeds(req, message).then(async () => {
+      resolveEmbeds(message).then(async () => {
         const messages = await Messages.findAll({
           where: { chatId: message.chatId },
           include: [
@@ -1450,7 +1450,7 @@ app.patch(
         }
       ]
     })
-    for (let user of req.body.users) {
+    for (const user of req.body.users) {
       const checkUser = await Users.findOne({
         where: {
           id: user
