@@ -1,4 +1,4 @@
 export interface Embed {
-  link: string
+  embedLink: string
   securityToken: string
 }

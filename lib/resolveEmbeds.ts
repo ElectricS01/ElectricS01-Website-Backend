@@ -13,40 +13,39 @@ export default async function resolveEmbeds(message: Messages) {
       let links: string[] | null = message.messageContents.match(regex)
       if (!links) return
       if (links.length > 3) links = links.slice(0, 3)
-      const embeds: Array<string | object> = []
       if (links) {
-        for (const [i, link] of links.entries()) {
-          const linkURL = new URL(link)
+        const promises = links.map(async (embedLink, i) => {
+          let embed: object = {}
+          const linkURL = new URL(embedLink)
           if ((blacklist as string[]).includes(linkURL.hostname)) {
             console.log(`Blacklisted link ${linkURL.hostname}`)
-            embeds.push({
-              link,
+            return {
+              embedLink,
               openGraph: {
                 ogDescription: "This link cannot be mediaproxied at this time.",
                 ogTitle: "Blacklisted link"
               },
               type: "openGraph"
-            })
-            return
+            }
           }
           await ogs({
             headers: {
               "user-agent": "Googlebot/2.1 (+http://www.google.com/bot.html)"
             },
-            url: link
+            url: embedLink
           })
             .then((result: SuccessResult | ErrorResult) => {
               if (result?.result) {
-                embeds.push({
-                  link,
+                embed = {
+                  embedLink,
                   openGraph: result.result,
                   type: "openGraph"
-                })
+                }
               }
             })
             .catch(async () => {
               await axios
-                .get(link, {
+                .get(embedLink, {
                   headers: {
                     "user-agent":
                       "Googlebot/2.1 (+http://www.google.com/bot.html)"
@@ -56,30 +55,32 @@ export default async function resolveEmbeds(message: Messages) {
                   // If content type is image
                   if (res.headers["content-type"].startsWith("image/")) {
                     const securityToken = cryptoRandomString({ length: 32 })
-                    embeds.push({
-                      link,
+                    embed = {
+                      embedLink,
                       mediaProxyLink: `/api/media-proxy/${message.id}/${i}/${securityToken}`,
                       securityToken,
                       type: "image"
-                    })
+                    }
                   }
                 })
                 .catch((e: Error) => {
                   console.log(e)
                 })
             })
-        }
-      }
-      await Messages.update(
-        {
-          embeds
-        },
-        {
-          where: {
-            id: message.id
+          return embed
+        })
+        const embeds = await Promise.all(promises)
+        await Messages.update(
+          {
+            embeds
+          },
+          {
+            where: {
+              id: message.id
+            }
           }
-        }
-      )
+        )
+      }
     }
   } catch (e) {
     console.log(e)

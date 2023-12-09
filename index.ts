@@ -202,7 +202,8 @@ app.get(
         return
       }
       const embed = message.embeds.find(
-        (e: Embed) => e.securityToken === req.params.securityToken
+        (findEmbed: Embed) =>
+          findEmbed.securityToken === req.params.securityToken
       )
       if (!embed) {
         res.status(400).json({
@@ -211,7 +212,7 @@ app.get(
         return
       }
       await axios
-        .get(embed.link, {
+        .get(embed.embedLink, {
           headers: {
             "user-agent": "Googlebot/2.1 (+https://www.google.com/bot.html)"
           },
@@ -1133,17 +1134,7 @@ app.delete(
       ? { id: req.params.messageId }
       : { id: req.params.messageId, userId: req.user.id }
     await Messages.destroy({ where })
-    const messages = await Messages.findAll({
-      include: [
-        {
-          as: "user",
-          attributes: ["id", "username", "avatar"],
-          model: Users
-        }
-      ],
-      where: { chatId: message.chatId }
-    })
-    res.json(messages)
+    res.sendStatus(204)
   }
 )
 
@@ -1451,7 +1442,7 @@ app.patch(
       ],
       where: { chatId: req.params.chat }
     })
-    for (const user of req.body.users) {
+    req.body.users.map(async (user: number) => {
       const checkUser = await Users.findOne({
         where: {
           id: user
@@ -1463,7 +1454,7 @@ app.patch(
           userId: user
         })
       }
-    }
+    })
     const chatAssociations = await ChatAssociations.findAll({
       include: [
         {
@@ -1524,9 +1515,29 @@ wss.on("connection", (ws: AuthWebSocket) => {
   ws.on("close", async () => {
     if (ws.user) {
       await ws.user.update({ status: "offline" })
-      wss.clients.forEach((wsClient: WebSocket) => {
-        wsClient.send(JSON.stringify({ changeUser: ws.user }))
-      })
+      const sendPromises = Array.from(wss.clients).map(
+        async (wsClient: WebSocket) => {
+          const friend = await Friends.findOne({
+            where: {
+              userId: ws.user.id
+            }
+          })
+          return wsClient.send(
+            JSON.stringify({
+              changeUser: {
+                avatar: ws.user.avatar,
+                friend: friend?.status,
+                friendRequests: ws.user.friendRequests,
+                id: ws.user.id,
+                status: ws.user.status,
+                statusMessage: ws.user.statusMessage,
+                username: ws.user.username
+              }
+            })
+          )
+        }
+      )
+      await Promise.all(sendPromises)
     }
     console.log("Socket closed")
     ws.close()
