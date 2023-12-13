@@ -276,7 +276,11 @@ app.get("/api/admin", auth, async (req: RequestUser, res: Response) => {
       message: "Forbidden"
     })
   }
-  return res.json(await Feedback.findAll())
+  const feedback = await Feedback.findAll()
+  const users = await Users.findAll({
+    attributes: { exclude: ["emailToken", "password", "updatedAt"] }
+  })
+  return res.json({ feedback, users })
 })
 
 app.get("/api/sessions", auth, async (req: RequestUser, res: Response) => {
