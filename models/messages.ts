@@ -12,8 +12,8 @@ import Users from "./users"
 @Table
 export default class Messages extends Model {
   @ForeignKey(() => Users)
-  @Column(DataType.STRING)
-  userId!: string
+  @Column
+  userId!: number
 
   @Column(DataType.TEXT)
   messageContents!: string
@@ -29,6 +29,12 @@ export default class Messages extends Model {
 
   @Column(DataType.INTEGER)
   chatId!: number
+
+  @Column({
+    allowNull: false,
+    defaultValue: false
+  })
+  pinned!: boolean
 
   @BelongsTo(() => Users)
   user!: Users

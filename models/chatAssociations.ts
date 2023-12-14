@@ -1,7 +1,6 @@
 import {
   BelongsTo,
   Column,
-  DataType,
   ForeignKey,
   Model,
   Table
@@ -13,8 +12,7 @@ import Users from "./users"
 export default class ChatAssociations extends Model {
   @ForeignKey(() => Users)
   @Column({
-    allowNull: false,
-    type: DataType.INTEGER
+    allowNull: false
   })
   userId!: number
 
@@ -23,8 +21,7 @@ export default class ChatAssociations extends Model {
 
   @ForeignKey(() => Chats)
   @Column({
-    allowNull: false,
-    type: DataType.INTEGER
+    allowNull: false
   })
   chatId!: number
 
@@ -33,15 +30,13 @@ export default class ChatAssociations extends Model {
 
   @Column({
     allowNull: false,
-    defaultValue: "Member",
-    type: DataType.STRING
+    defaultValue: "Member"
   })
   type!: string
 
   @Column({
     allowNull: false,
-    defaultValue: -1,
-    type: DataType.STRING
+    defaultValue: -1
   })
   lastRead!: number
 }

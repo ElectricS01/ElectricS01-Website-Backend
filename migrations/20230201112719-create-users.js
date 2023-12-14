@@ -1,42 +1,60 @@
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
-  async down(queryInterface) {
-    await queryInterface.dropTable("Users")
-  },
   async up(queryInterface, Sequelize) {
     await queryInterface.createTable("Users", {
-      admin: {
-        type: Sequelize.BOOLEAN
-      },
-      createdAt: {
-        allowNull: false,
-        type: Sequelize.DATE
-      },
-      email: {
-        type: Sequelize.STRING
-      },
-      emailToken: {
-        type: Sequelize.STRING
-      },
-      emailVerified: {
-        type: Sequelize.BOOLEAN
-      },
       id: {
         allowNull: false,
         autoIncrement: true,
         primaryKey: true,
         type: Sequelize.INTEGER
       },
+      username: {
+        allowNull: false,
+        type: Sequelize.STRING,
+        unique: true
+      },
+      email: {
+        allowNull: false,
+        type: Sequelize.STRING,
+        unique: true
+      },
       password: {
+        allowNull: false,
         type: Sequelize.STRING
+      },
+      emailVerified: {
+        allowNull: false,
+        type: Sequelize.BOOLEAN
+      },
+      emailToken: {
+        allowNull: false,
+        type: Sequelize.STRING
+      },
+      admin: {
+        allowNull: false,
+        defaultValue: false,
+        type: Sequelize.BOOLEAN
+      },
+      avatar: {
+        type: Sequelize.STRING
+      },
+      description: {
+        type: Sequelize.TEXT
+      },
+      banner: {
+        type: Sequelize.STRING
+      },
+      createdAt: {
+        allowNull: false,
+        type: Sequelize.DATE
       },
       updatedAt: {
         allowNull: false,
         type: Sequelize.DATE
-      },
-      username: {
-        type: Sequelize.STRING
       }
     })
+  },
+  async down(queryInterface) {
+    await queryInterface.dropTable("Users")
   }
 }

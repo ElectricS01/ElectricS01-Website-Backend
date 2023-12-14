@@ -1,4 +1,3 @@
-import "reflect-metadata"
 import sequelize from "./db"
 import axios, { AxiosError, AxiosResponse } from "axios"
 import argon2 from "argon2"
@@ -1481,6 +1480,36 @@ app.patch(
     })
   }
 )
+
+app.patch("/api/pin", auth, async (req: RequestUser, res: Response) => {
+  if (!req.body.messageId) {
+    res.status(400).json({
+      message: "Message not specified"
+    })
+    return
+  }
+  const message = await Messages.findOne({
+    where: {
+      id: req.body.messageId
+    }
+  })
+  if (!message) {
+    res.status(400).json({
+      message: "Message could not be found"
+    })
+    return
+  }
+  if (message.id !== req.user.id && !req.user.admin) {
+    res.status(403).json({
+      message: "Forbidden"
+    })
+    return
+  }
+  await message.update({
+    pinned: !message.pinned
+  })
+  res.sendStatus(204)
+})
 
 wss.on("connection", (ws: AuthWebSocket) => {
   console.log("Socket opened")

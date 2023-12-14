@@ -6,6 +6,15 @@ module.exports = {
   parser: "@typescript-eslint/parser",
   plugins: ["@typescript-eslint", "sort-keys-fix"],
   root: true,
+  overrides: [
+    {
+      files: ["*.js"],
+      rules: {
+        "sort-keys-fix/sort-keys-fix": "off",
+        "sort-keys": "off"
+      }
+    }
+  ],
   rules: {
     "array-element-newline": "off",
     curly: "off",

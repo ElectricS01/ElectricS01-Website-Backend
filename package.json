@@ -20,10 +20,10 @@
     "mariadb": "^3.2.2",
     "nodemailer": "^6.9.3",
     "open-graph-scraper": "^5.0.5",
-    "reflect-metadata": "^0.1.13",
     "sequelize": "^6.35.0",
     "sequelize-cli": "^6.5.2",
     "sequelize-typescript": "^2.1.5",
+    "ts-node": "^10.9.1",
     "typescript": "^5.3.3",
     "ws": "^8.14.2"
   },
@@ -37,7 +37,6 @@
     "@typescript-eslint/parser": "^6.13.2",
     "eslint": "^8.55.0",
     "eslint-plugin-sort-keys-fix": "^1.1.2",
-    "nodemon": "^3.0.1",
-    "ts-node": "^10.9.1"
+    "nodemon": "^3.0.2"
   }
 }

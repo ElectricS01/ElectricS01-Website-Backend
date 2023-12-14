@@ -1,8 +1,5 @@
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
-  async down(queryInterface) {
-    await queryInterface.dropTable("Friends")
-  },
   async up(queryInterface, Sequelize) {
     await queryInterface.addColumn("Users", "directMessages", {
       allowNull: false,
@@ -23,33 +20,36 @@ module.exports = {
       type: Sequelize.STRING
     })
     await queryInterface.createTable("Friends", {
-      createdAt: {
-        allowNull: false,
-        type: Sequelize.DATE
-      },
-      friendId: {
-        allowNull: false,
-        type: Sequelize.INTEGER
-      },
       id: {
         allowNull: false,
         autoIncrement: true,
         primaryKey: true,
         type: Sequelize.INTEGER
       },
+      userId: {
+        allowNull: false,
+        type: Sequelize.INTEGER
+      },
+      friendId: {
+        allowNull: false,
+        type: Sequelize.INTEGER
+      },
       status: {
         allowNull: false,
-        defaultValue: "pending",
-        type: Sequelize.STRING
+        type: Sequelize.STRING,
+        defaultValue: "pending"
+      },
+      createdAt: {
+        allowNull: false,
+        type: Sequelize.DATE
       },
       updatedAt: {
         allowNull: false,
         type: Sequelize.DATE
-      },
-      userId: {
-        allowNull: false,
-        type: Sequelize.INTEGER
       }
     })
+  },
+  async down(queryInterface) {
+    await queryInterface.dropTable("Friends")
   }
 }

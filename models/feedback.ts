@@ -16,7 +16,7 @@ export default class Feedback extends Model {
     allowNull: false,
     type: DataType.INTEGER
   })
-  userId!: string
+  userId!: number
 
   @Column({
     allowNull: false,
