@@ -64,6 +64,16 @@ const getChat = async function (chatId: string, userId: number) {
     ],
     where: { chatId }
   })
+  chat.dataValues.pins = await Messages.findAll({
+    include: [
+      {
+        as: "user",
+        attributes: ["id", "username", "avatar"],
+        model: Users
+      }
+    ],
+    where: { chatId, pinned: true }
+  })
   const association = await ChatAssociations.findOne({
     where: {
       chatId,
