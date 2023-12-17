@@ -20,6 +20,13 @@ module.exports = {
         defaultValue: [],
         type: Sequelize.JSON
       },
+      edited: {
+        defaultValue: false,
+        type: Sequelize.BOOLEAN
+      },
+      reply: {
+        type: Sequelize.INTEGER
+      },
       createdAt: {
         allowNull: false,
         type: Sequelize.DATE

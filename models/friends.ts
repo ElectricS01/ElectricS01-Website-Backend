@@ -1,7 +1,6 @@
 import {
   BelongsTo,
   Column,
-  DataType,
   ForeignKey,
   Model,
   Table
@@ -20,8 +19,7 @@ export default class Friends extends Model {
 
   @Column({
     allowNull: false,
-    defaultValue: "pending",
-    type: DataType.STRING
+    defaultValue: "pending"
   })
   status!: string
 

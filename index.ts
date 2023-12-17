@@ -511,6 +511,9 @@ app.post("/api/register", async (req: Request, res: Response) => {
         length: 128
       }),
       password: await argon2.hash(req.body.password),
+      privateKey: req.body.privateKey,
+      publicKey: req.body.publicKey,
+      savePrivateKey: req.body.savePrivateKey,
       username: req.body.username
     })
     emailLibrary
@@ -680,7 +683,9 @@ app.post("/api/user-prop", auth, async (req: RequestUser, res: Response) => {
     "saveSwitcher",
     "avatar",
     "banner",
-    "description"
+    "description",
+    "encryption",
+    "savePrivateKey"
   ]
   if (!user || !properties.includes(req.body.property)) {
     return res.status(400).json({
@@ -694,6 +699,7 @@ app.post("/api/user-prop", auth, async (req: RequestUser, res: Response) => {
     ((req.body.property === "avatar" ||
       req.body.property === "banner" ||
       req.body.property === "directMessages" ||
+      req.body.property === "encryption" ||
       req.body.property === "description") &&
       !req.body.val)
   ) {
@@ -704,6 +710,7 @@ app.post("/api/user-prop", auth, async (req: RequestUser, res: Response) => {
   if (
     (req.body.property === "friendRequests" ||
       req.body.property === "showCreated" ||
+      req.body.property === "savePrivateKey" ||
       req.body.property === "saveSwitcher") &&
     typeof req.body.val !== "boolean"
   ) {

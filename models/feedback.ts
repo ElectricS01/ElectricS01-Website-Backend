@@ -1,10 +1,4 @@
-import {
-  Column,
-  DataType,
-  ForeignKey,
-  Model,
-  Table
-} from "sequelize-typescript"
+import { Column, ForeignKey, Model, Table } from "sequelize-typescript"
 import Users from "./users"
 
 @Table({
@@ -13,14 +7,12 @@ import Users from "./users"
 export default class Feedback extends Model {
   @ForeignKey(() => Users)
   @Column({
-    allowNull: false,
-    type: DataType.INTEGER
+    allowNull: false
   })
   userId!: number
 
   @Column({
-    allowNull: false,
-    type: DataType.STRING
+    allowNull: false
   })
   feedback!: string
 }

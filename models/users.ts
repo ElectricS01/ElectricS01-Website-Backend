@@ -4,14 +4,12 @@ import Friends from "../models/friends"
 @Table
 export default class Users extends Model {
   @Column({
-    type: DataType.STRING,
     unique: true
   })
   username!: string
 
   @Column({
     allowNull: false,
-    type: DataType.STRING,
     unique: true,
     validate: {
       isEmail: true
@@ -19,12 +17,11 @@ export default class Users extends Model {
   })
   email!: string
 
-  @Column(DataType.STRING)
+  @Column
   password!: string
 
   @Column({
-    defaultValue: false,
-    type: DataType.BOOLEAN
+    defaultValue: false
   })
   emailVerified!: boolean
 
@@ -32,46 +29,57 @@ export default class Users extends Model {
   emailToken!: string
 
   @Column({
-    defaultValue: false,
-    type: DataType.BOOLEAN
+    defaultValue: false
   })
   admin!: boolean
 
-  @Column(DataType.STRING)
+  @Column
   avatar!: string
 
-  @Column(DataType.STRING)
+  @Column
   banner!: string
 
   @Column(DataType.TEXT)
   description!: string
 
-  @Column(DataType.STRING)
+  @Column
   directMessages!: string
 
-  @Column(DataType.BOOLEAN)
+  @Column
   friendRequests!: boolean
 
-  @Column(DataType.STRING)
+  @Column
   status!: string
 
-  @Column(DataType.STRING)
+  @Column
   statusMessage!: string
 
-  @Column(DataType.BOOLEAN)
+  @Column
   showCreated!: boolean
 
-  @Column(DataType.BOOLEAN)
+  @Column
   saveSwitcher!: boolean
+
+  @Column({ defaultValue: "off" })
+  encryption!: string
+
+  @Column({ defaultValue: false })
+  savePrivateKey!: boolean
+
+  @Column(DataType.TEXT)
+  publicKey!: string
+
+  @Column
+  privateKey!: string
 
   @Column({ defaultValue: [], type: DataType.JSON })
   switcherHistory!: boolean
 
-  @Column(DataType.STRING)
-  tetris!: boolean
+  @Column
+  tetris!: string
 
-  @Column(DataType.STRING)
-  tonkGame!: boolean
+  @Column
+  tonkGame!: string
 
   @HasMany(() => Friends, "friendId")
   friend!: Friends[]

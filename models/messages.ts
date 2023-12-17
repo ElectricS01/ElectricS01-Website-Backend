@@ -6,7 +6,7 @@ import {
   Model,
   Table
 } from "sequelize-typescript"
-import { Embed } from "../types/embeds"
+import type { Embed } from "../types/embeds"
 import Users from "./users"
 
 @Table
@@ -21,13 +21,13 @@ export default class Messages extends Model {
   @Column(DataType.JSON)
   embeds!: Embed[]
 
-  @Column(DataType.BOOLEAN)
+  @Column
   edited!: boolean
 
-  @Column(DataType.INTEGER)
+  @Column
   reply!: number
 
-  @Column(DataType.INTEGER)
+  @Column
   chatId!: number
 
   @Column({

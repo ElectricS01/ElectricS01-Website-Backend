@@ -13,8 +13,7 @@ import Users from "./users"
 @Table
 export default class Chats extends Model {
   @Column({
-    allowNull: false,
-    type: DataType.STRING
+    allowNull: false
   })
   name!: string
 
@@ -26,14 +25,12 @@ export default class Chats extends Model {
 
   @ForeignKey(() => Users)
   @Column({
-    allowNull: false,
-    type: DataType.INTEGER
+    allowNull: false
   })
   owner!: number
 
   @Column({
-    allowNull: false,
-    type: DataType.BOOLEAN
+    allowNull: false
   })
   requireVerification!: boolean
 
@@ -41,7 +38,7 @@ export default class Chats extends Model {
     allowNull: false,
     type: DataType.DATE
   })
-  latest!: boolean
+  latest!: number
 
   @Column({
     allowNull: false,
@@ -61,8 +58,7 @@ export default class Chats extends Model {
 
   @Column({
     allowNull: false,
-    defaultValue: "Member",
-    type: DataType.STRING
+    defaultValue: "Member"
   })
   allowInvite!: string
 }
