@@ -69,7 +69,7 @@ export default class Users extends Model {
   @Column(DataType.TEXT)
   publicKey!: string
 
-  @Column
+  @Column(DataType.TEXT)
   privateKey!: string
 
   @Column({ defaultValue: [], type: DataType.JSON })

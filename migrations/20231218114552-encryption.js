@@ -15,7 +15,7 @@ module.exports = {
       type: Sequelize.TEXT
     })
     await queryInterface.addColumn("Users", "privateKey", {
-      type: Sequelize.STRING
+      type: Sequelize.TEXT
     })
   }
 }
