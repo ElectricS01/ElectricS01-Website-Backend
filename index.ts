@@ -726,6 +726,11 @@ app.post("/api/user-prop", auth, async (req: RequestUser, res: Response) => {
       switcherHistory: []
     })
   }
+  if (req.body.property === "savePrivateKey") {
+    await user.update({
+      privateKey: null
+    })
+  }
   return res.sendStatus(204)
 })
 
