@@ -353,29 +353,21 @@ app.post("/api/message", auth, async (req: RequestUser, res: Response) => {
       }
     })
     const replyMessage = req.body.reply
-    const message = await Messages.create({
+    const lastMessage = await Messages.create({
       chatId: req.body.chatId,
       messageContents: messageText,
       reply: replyMessage,
       userId: req.user.id
     })
-    await resolveEmbeds(message)
+    lastMessage.dataValues.embeds = await resolveEmbeds(lastMessage)
     await chat.update({
       latest: Date.now()
     })
-    const messages = await Messages.findAll({
-      include: [
-        {
-          as: "user",
-          attributes: ["id", "username", "avatar"],
-          model: Users
-        }
-      ],
+    const messages = await Messages.count({
       where: { chatId: req.body.chatId }
     })
-    const [lastMessage] = messages.splice(-1)
     await association?.update({
-      lastRead: messages.length
+      lastRead: messages
     })
     const chatAssociations = await ChatAssociations.findAll({
       include: [
@@ -397,7 +389,7 @@ app.post("/api/message", auth, async (req: RequestUser, res: Response) => {
       const user = users.find(
         (findUser) => findUser.id === (wsClient as AuthWebSocket).user?.id
       )
-      if (user && user.id !== message.userId)
+      if (user && user.id !== lastMessage.userId)
         wsClient.send(JSON.stringify({ newMessage: lastMessage }))
     })
     getChats(req.user.id).then((chats) => {
