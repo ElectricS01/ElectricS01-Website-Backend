@@ -49,7 +49,13 @@ const getChat = async function (chatId: string, userId: number) {
   const chat = await Chats.findOne({
     where: {
       id: chatId
-    }
+    },
+    include: [
+      {
+        attributes: ["id", "username", "avatar"],
+        model: Users
+      }
+    ]
   })
   if (!chat) {
     return null
