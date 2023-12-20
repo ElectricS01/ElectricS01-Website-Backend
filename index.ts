@@ -360,6 +360,11 @@ app.post("/api/message", auth, async (req: RequestUser, res: Response) => {
       userId: req.user.id
     })
     lastMessage.dataValues.embeds = await resolveEmbeds(lastMessage)
+    lastMessage.dataValues.user = {
+      id: req.user.id,
+      username: req.user.username,
+      avatar: req.user.avatar
+    }
     await chat.update({
       latest: Date.now()
     })
