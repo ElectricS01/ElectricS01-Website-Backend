@@ -17,6 +17,7 @@ module.exports = {
   ],
   rules: {
     "array-element-newline": "off",
+    "consistent-return": "off",
     curly: "off",
     "dot-location": "off",
     "func-names": ["error", "as-needed"],

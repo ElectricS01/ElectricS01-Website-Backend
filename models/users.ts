@@ -25,7 +25,7 @@ export default class Users extends Model {
   })
   emailVerified!: boolean
 
-  @Column(DataType.STRING)
+  @Column
   emailToken!: string
 
   @Column({

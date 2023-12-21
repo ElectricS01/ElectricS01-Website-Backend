@@ -17,10 +17,10 @@ export default class Chats extends Model {
   })
   name!: string
 
-  @Column(DataType.STRING)
+  @Column
   description!: string
 
-  @Column(DataType.STRING)
+  @Column
   icon!: string
 
   @ForeignKey(() => Users)
@@ -42,8 +42,7 @@ export default class Chats extends Model {
 
   @Column({
     allowNull: false,
-    defaultValue: 0,
-    type: DataType.INTEGER
+    defaultValue: 0
   })
   type!: number
 

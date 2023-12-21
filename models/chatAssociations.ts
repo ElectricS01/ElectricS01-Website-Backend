@@ -39,4 +39,9 @@ export default class ChatAssociations extends Model {
     defaultValue: -1
   })
   lastRead!: number
+
+  @Column({
+    defaultValue: 0
+  })
+  notifications!: number
 }

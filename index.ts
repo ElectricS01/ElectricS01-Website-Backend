@@ -47,15 +47,15 @@ const limiter = rateLimit({
 
 const getChat = async function (chatId: string, userId: number) {
   const chat = await Chats.findOne({
-    where: {
-      id: chatId
-    },
     include: [
       {
         attributes: ["id", "username", "avatar"],
         model: Users
       }
-    ]
+    ],
+    where: {
+      id: chatId
+    }
   })
   if (!chat) {
     return null
@@ -140,6 +140,7 @@ const getChat = async function (chatId: string, userId: number) {
   }
   chat.dataValues.users = users
   chat.dataValues.lastRead = association?.lastRead
+  chat.dataValues.notifications = association?.notifications
   return chat
 }
 
@@ -158,7 +159,7 @@ const getChats = async function (userId: number) {
     ],
     include: [
       {
-        attributes: [],
+        attributes: ["notifications"],
         model: ChatAssociations,
         where: { userId }
       },
@@ -361,9 +362,9 @@ app.post("/api/message", auth, async (req: RequestUser, res: Response) => {
     })
     lastMessage.dataValues.embeds = await resolveEmbeds(lastMessage)
     lastMessage.dataValues.user = {
+      avatar: req.user.avatar,
       id: req.user.id,
-      username: req.user.username,
-      avatar: req.user.avatar
+      username: req.user.username
     }
     await chat.update({
       latest: Date.now()
@@ -384,6 +385,13 @@ app.post("/api/message", auth, async (req: RequestUser, res: Response) => {
       ],
       where: { chatId: req.body.chatId }
     })
+    await ChatAssociations.increment("notifications", {
+      where: { chatId: req.body.chatId }
+    })
+    await ChatAssociations.update(
+      { notifications: 0 },
+      { where: { chatId: req.body.chatId, userId: req.user.id } }
+    )
     let users = chatAssociations.map((mapAssociation) => mapAssociation.user)
     if (users.length === 0) {
       users = await Users.findAll({
@@ -1115,7 +1123,8 @@ app.post("/api/read-new/:id", auth, async (req: RequestUser, res: Response) => {
     })
   }
   await association.update({
-    lastRead: chat.dataValues.messages.length
+    lastRead: chat.dataValues.messages.length,
+    notifications: 0
   })
   return res.sendStatus(204)
 })

@@ -44,6 +44,16 @@ module.exports = {
       banner: {
         type: Sequelize.STRING
       },
+      showCreated: {
+        defaultValue: true,
+        type: Sequelize.BOOLEAN
+      },
+      tetris: {
+        type: Sequelize.STRING
+      },
+      tonkGame: {
+        type: Sequelize.STRING
+      },
       createdAt: {
         allowNull: false,
         type: Sequelize.DATE
