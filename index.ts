@@ -593,9 +593,10 @@ app.post("/api/login", async (req: Request, res: Response) => {
 app.post("/api/reset-password", async (req: Request, res: Response) => {
   try {
     if (req.body.email.length < 1) {
-      return res.status(500).json({
+      res.status(500).json({
         message: "Form not complete"
       })
+      return
     }
     const user = await Users.findOne({
       where: {
@@ -603,19 +604,21 @@ app.post("/api/reset-password", async (req: Request, res: Response) => {
       }
     })
     if (!user) {
-      res.status(401)
-      res.json({
+      res.status(401).json({
         message: "Email does not exist"
       })
+      return
     }
-    return res.status(500).json({
+    res.status(500).json({
       message: "This feature is unavailable right now"
     })
+    return
   } catch (e) {
     console.log(e)
-    return res.status(500).json({
+    res.status(500).json({
       message: "Something went wrong"
     })
+    return
   }
 })
 
