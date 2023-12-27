@@ -6,7 +6,7 @@
       <script value="dev" />
     </scripts>
     <node-interpreter value="project" />
-    <package-manager value="/opt/homebrew/Cellar/bun/1.0.18/bin/bun" />
+    <package-manager value="/opt/homebrew/bin/bun" />
     <envs />
     <method v="2" />
   </configuration>
