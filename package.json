@@ -19,7 +19,7 @@
     "express-rate-limit": "^7.0.1",
     "mariadb": "^3.2.2",
     "nodemailer": "^6.9.3",
-    "open-graph-scraper": "^5.0.5",
+    "open-graph-scraper": "^6.4.0",
     "sequelize": "^6.35.0",
     "sequelize-cli": "^6.5.2",
     "sequelize-typescript": "^2.1.5",

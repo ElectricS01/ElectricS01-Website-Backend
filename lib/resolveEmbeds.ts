@@ -28,8 +28,10 @@ export default async function resolveEmbeds(message: Messages) {
             }
           }
           await ogs({
-            headers: {
-              "user-agent": "Googlebot/2.1 (+http://www.google.com/bot.html)"
+            fetchOptions: {
+              headers: {
+                "user-agent": "Googlebot/2.1 (+http://www.google.com/bot.html)"
+              }
             },
             url: embedLink
           })
