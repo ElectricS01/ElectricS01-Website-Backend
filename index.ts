@@ -1571,13 +1571,34 @@ wss.on("connection", (ws: AuthWebSocket) => {
       ws.user = session.user
       ws.send(JSON.stringify({ authSuccess: "Token accepted." }))
       await session.user.update({ status: "online" })
-      wss.clients.forEach((wsClient: WebSocket) => {
-        if (
-          (wsClient as AuthWebSocket)?.user &&
-          (wsClient as AuthWebSocket).user.id !== ws.user.id
-        )
-          wsClient.send(JSON.stringify({ changeUser: ws.user }))
-      })
+      const sendPromises = Array.from(wss.clients).map(
+        async (wsClient: WebSocket) => {
+          if (
+            (wsClient as AuthWebSocket)?.user &&
+            (wsClient as AuthWebSocket).user.id !== ws.user.id
+          ) {
+            const friend = await Friends.findOne({
+              where: {
+                userId: ws.user.id
+              }
+            })
+            wsClient.send(
+              JSON.stringify({
+                changeUser: {
+                  avatar: ws.user.avatar,
+                  friend: friend?.status,
+                  friendRequests: ws.user.friendRequests,
+                  id: ws.user.id,
+                  status: ws.user.status,
+                  statusMessage: ws.user.statusMessage,
+                  username: ws.user.username
+                }
+              })
+            )
+          }
+        }
+      )
+      await Promise.all(sendPromises)
     }
   })
   ws.on("close", async () => {
