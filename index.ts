@@ -648,6 +648,7 @@ app.post("/api/get-user", auth, async (req: RequestUser, res: Response) => {
         "admin",
         "saveSwitcher",
         "switcherHistory",
+        "privateKey",
         "updatedAt"
       ]
     },
