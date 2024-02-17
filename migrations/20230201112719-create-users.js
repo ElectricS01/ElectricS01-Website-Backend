@@ -48,6 +48,24 @@ module.exports = {
         defaultValue: true,
         type: Sequelize.BOOLEAN
       },
+      directMessages: {
+        allowNull: false,
+        defaultValue: "everyone",
+        type: Sequelize.STRING
+      },
+      friendRequests: {
+        allowNull: false,
+        defaultValue: true,
+        type: Sequelize.BOOLEAN
+      },
+      status: {
+        allowNull: false,
+        defaultValue: "online",
+        type: Sequelize.STRING
+      },
+      statusMessage: {
+        type: Sequelize.STRING
+      },
       tetris: {
         type: Sequelize.STRING
       },
