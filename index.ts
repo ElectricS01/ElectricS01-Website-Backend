@@ -454,12 +454,6 @@ app.post("/api/create-chat", auth, async (req: RequestUser, res: Response) => {
     })
     return
   }
-  if (!req.user.admin) {
-    res.status(403).json({
-      message: "Forbidden"
-    })
-    return
-  }
   const newChat = await Chats.create({
     description: req.body.description,
     icon: req.body.icon,
