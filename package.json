@@ -21,7 +21,6 @@
     "nodemailer": "^6.9.3",
     "open-graph-scraper": "^6.4.0",
     "sequelize": "^6.35.0",
-    "sequelize-cli": "^6.5.2",
     "sequelize-typescript": "^2.1.5",
     "ts-node": "^10.9.1",
     "typescript": "^5.3.3",
@@ -37,6 +36,7 @@
     "@typescript-eslint/parser": "^6.13.2",
     "eslint": "^8.55.0",
     "eslint-plugin-sort-keys-fix": "^1.1.2",
-    "nodemon": "^3.0.2"
+    "nodemon": "^3.0.2",
+    "sequelize-cli": "^6.5.2"
   }
 }

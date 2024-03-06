@@ -276,14 +276,19 @@ app.get("/api/user", auth, (req: RequestUser, res: Response) => {
 })
 
 app.get("/api/chat/:chatId", auth, async (req: RequestUser, res: Response) => {
-  await getChat(req.params.chatId, req.user.id).then((chat) => {
-    if (!chat) {
-      return res.status(400).json({
-        message: "Chat does not exist"
-      })
+  const association = await ChatAssociations.findOne({
+    where: {
+      chatId: req.params.chatId,
+      userId: req.user.id
     }
-    return res.json(chat)
   })
+  if (!association) {
+    res.status(400).json({
+      message: "Chat does not exist"
+    })
+    return
+  }
+  await getChat(req.params.chatId, req.user.id).then((chat) => res.json(chat))
 })
 
 app.get("/api/admin", auth, async (req: RequestUser, res: Response) => {
