@@ -1,17 +1,7 @@
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
   async up(queryInterface, Sequelize) {
-    await queryInterface.addColumn("Chats", "type", {
-      allowNull: false,
-      defaultValue: 0,
-      type: Sequelize.INTEGER
-    })
-    await queryInterface.addColumn("Chats", "allowInvite", {
-      allowNull: false,
-      defaultValue: "Member",
-      type: Sequelize.STRING
-    })
-    await queryInterface.createTable("ChatAssociations", {
+    await queryInterface.createTable("Notifications", {
       id: {
         allowNull: false,
         autoIncrement: true,
@@ -22,14 +12,19 @@ module.exports = {
         allowNull: false,
         type: Sequelize.INTEGER
       },
-      chatId: {
+      otherId: {
         allowNull: false,
         type: Sequelize.INTEGER
       },
       type: {
         allowNull: false,
-        defaultValue: "Member",
-        type: Sequelize.STRING
+        defaultValue: 0,
+        type: Sequelize.INTEGER
+      },
+      isRead: {
+        allowNull: false,
+        defaultValue: false,
+        type: Sequelize.BOOLEAN
       },
       createdAt: {
         allowNull: false,
@@ -42,6 +37,6 @@ module.exports = {
     })
   },
   async down(queryInterface) {
-    await queryInterface.dropTable("ChatAssociations")
+    await queryInterface.dropTable("Notifications")
   }
 }

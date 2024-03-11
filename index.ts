@@ -25,6 +25,7 @@ import Friends from "./models/friends"
 import Feedback from "./models/feedback"
 import Chats from "./models/chats"
 import ChatAssociations from "./models/chatAssociations"
+import Notifications from "./models/notifications"
 
 sequelize.sync()
 
@@ -35,9 +36,19 @@ const port = 24555
 const wss = new WebSocketServer({ port: port - 1 })
 
 const emailLibrary = new nodemailerLibrary()
+const postLimiter = rateLimit({
+  legacyHeaders: false,
+  limit: 5,
+  message: {
+    message: "Too many requests, Slow Down!"
+  },
+  standardHeaders: true,
+  windowMs: 5000
+})
+
 const limiter = rateLimit({
   legacyHeaders: false,
-  limit: 3,
+  limit: 10,
   message: {
     message: "Too many requests, Slow Down!"
   },
@@ -250,9 +261,9 @@ app.get(
 
 app.use((req: Request, res: Response, next: NextFunction) => {
   if (req.method === "POST") {
-    limiter(req, res, next)
+    postLimiter(req, res, next)
   } else {
-    next()
+    limiter(req, res, next)
   }
 })
 
@@ -263,13 +274,20 @@ app.use(
   })
 )
 
-app.get("/api/user", auth, (req: RequestUser, res: Response) => {
+app.get("/api/user", auth, async (req: RequestUser, res: Response) => {
+  const notifications = await Notifications.findAll({
+    where: {
+      userId: req.user.id
+    }
+  })
   getChats(req.user.id).then((chatsList) => {
     res.json({
       chatsList,
+      notifications,
       ...req.user.toJSON(),
       emailToken: undefined,
       password: undefined,
+      privateKey: undefined,
       updatedAt: undefined
     })
   })
@@ -654,6 +672,7 @@ app.post("/api/get-user", auth, async (req: RequestUser, res: Response) => {
         "saveSwitcher",
         "switcherHistory",
         "privateKey",
+        "savePrivateKey",
         "updatedAt"
       ]
     },
@@ -804,6 +823,10 @@ app.post(
         friendId: req.user.id,
         status: "incoming",
         userId: user.id
+      })
+      await Notifications.create({
+        userId: user.id,
+        otherId: req.user.id
       })
       res.sendStatus(204)
       return
@@ -1353,12 +1376,7 @@ app.patch(
   auth,
   async (req: RequestUser, res: Response) => {
     const statusText = req.body.statusMessage.trim()
-    const user = await Users.findOne({
-      where: {
-        id: req.user.id
-      }
-    })
-    if (!user || !statusText) {
+    if (!statusText) {
       res.status(400).json({
         message: "Status has no content"
       })
@@ -1370,15 +1388,35 @@ app.patch(
       })
       return
     }
-    if (statusText !== user.statusMessage) {
-      await user.update({
+    if (statusText !== req.user.statusMessage) {
+      await req.user.update({
         statusMessage: statusText
       })
     }
-    const users = await Users.findAll({
-      attributes: ["id", "username", "avatar", "status", "statusMessage"]
-    })
-    res.json({ statusMessage: user.statusMessage, users })
+    const sendPromises = Array.from(wss.clients).map(
+      async (wsClient: WebSocket) => {
+        const friend = await Friends.findOne({
+          where: {
+            userId: req.user.id
+          }
+        })
+        return wsClient.send(
+          JSON.stringify({
+            changeUser: {
+              avatar: req.user.avatar,
+              friend: friend?.status,
+              friendRequests: req.user.friendRequests,
+              id: req.user.id,
+              status: req.user.status,
+              statusMessage: req.user.statusMessage,
+              username: req.user.username
+            }
+          })
+        )
+      }
+    )
+    await Promise.all(sendPromises)
+    res.json({ statusMessage: req.user.statusMessage })
   }
 )
 
@@ -1492,6 +1530,11 @@ app.patch(
         await ChatAssociations.create({
           chatId: req.params.chat,
           userId: user
+        })
+        await Notifications.create({
+          userId: user,
+          otherId: req.params.chat,
+          type: 1
         })
       }
     })
