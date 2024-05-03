@@ -1,5 +1,5 @@
 import nodemailer, { Transporter } from "nodemailer"
-import config from "../config/main.json"
+import * as process from "node:process"
 
 interface MailOptions {
   from: string
@@ -14,12 +14,12 @@ class NodemailerLibrary {
   constructor() {
     const options = {
       auth: {
-        pass: config.emailPassword,
-        user: config.emailUsername
+        pass: process.env.EMAIL_PASSWORD,
+        user: process.env.EMAIL_USERNAME
       },
-      host: config.emailService,
-      port: Number(config.emailPort),
-      secure: config.emailSecure === "true"
+      host: process.env.EMAIL_SERVICE,
+      port: Number(process.env.EMAIL_PORT),
+      secure: process.env.EMAIL_SECURE === "true"
     }
 
     this.transporter = nodemailer.createTransport(options)

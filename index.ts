@@ -11,8 +11,6 @@ import { WebSocket, WebSocketServer } from "ws"
 
 import { NextFunction, Request, Response } from "express"
 
-import config from "./config/main.json"
-
 import auth from "./lib/auth"
 import authSession from "./lib/authSession"
 import resolveEmbeds from "./lib/resolveEmbeds"
@@ -26,6 +24,7 @@ import Feedback from "./models/feedback"
 import Chats from "./models/chats"
 import ChatAssociations from "./models/chatAssociations"
 import Notifications from "./models/notifications"
+import * as process from "node:process"
 
 sequelize.sync()
 
@@ -769,9 +768,9 @@ app.post("/api/user-prop", auth, async (req: RequestUser, res: Response) => {
 
 app.post("/api/avatar", auth, (req: RequestUser, res: Response) => {
   axios
-    .post(config.uploadLink, req.body, {
+    .post(process.env.UPLOAD_LINK || "", req.body, {
       headers: {
-        Authorization: config.apiKey
+        Authorization: process.env.UPLOAD_KEY
       }
     })
     .then(async (response: AxiosResponse) => {
