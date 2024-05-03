@@ -4,7 +4,7 @@
   "private": true,
   "main": "index.ts",
   "scripts": {
-    "dev": "nodemon",
+    "dev": "nodemon -r dotenv/config",
     "prod": "ts-node-esm index.ts",
     "lint": "eslint --ext .js,.ts --ignore-path .gitignore --fix ./",
     "lint-no-fix": "eslint --ext .js,.ts --ignore-path .gitignore ./"
@@ -12,14 +12,16 @@
   "repository": "https://github.com/ElectricS01/ElectricS01-Website-Backend.git",
   "author": "ElectricS01 <103579308+ElectricS01@users.noreply.github.com>",
   "dependencies": {
-    "argon2": "^0.31.1",
+    "argon2": "^0.40.1",
     "axios": "^1.5.1",
     "crypto-random-string": "^3.3.1",
+    "dotenv": "^16.4.5",
     "express": "^4.18.2",
     "express-rate-limit": "^7.0.1",
     "mariadb": "^3.2.2",
     "nodemailer": "^6.9.3",
     "open-graph-scraper": "^6.4.0",
+    "reflect-metadata": "^0.2.2",
     "sequelize": "^6.35.0",
     "sequelize-typescript": "^2.1.5",
     "ts-node": "^10.9.1",

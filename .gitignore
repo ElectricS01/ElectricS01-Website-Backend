@@ -5,3 +5,4 @@ config/main.json
 .DS_Store
 out
 yarn-error.log
+.env
