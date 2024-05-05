@@ -5,7 +5,7 @@
   "main": "index.ts",
   "scripts": {
     "dev": "nodemon -r dotenv/config",
-    "prod": "ts-node-esm index.ts",
+    "prod": "ts-node-esm -r dotenv/config index.ts",
     "lint": "eslint --ext .js,.ts --ignore-path .gitignore --fix ./",
     "lint-no-fix": "eslint --ext .js,.ts --ignore-path .gitignore ./"
   },
