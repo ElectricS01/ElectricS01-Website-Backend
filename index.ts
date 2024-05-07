@@ -1355,17 +1355,19 @@ app.patch(
         messageContents: messageText
       })
       await resolveEmbeds(message)
-      const messages = await Messages.findAll({
+      const editedMessage = await Messages.findOne({
+        where: {
+          id: message.id
+        },
         include: [
           {
             as: "user",
             attributes: ["id", "username", "avatar"],
             model: Users
           }
-        ],
-        where: { chatId: message.chatId }
+        ]
       })
-      res.json(messages)
+      res.json(editedMessage)
     }
   }
 )
