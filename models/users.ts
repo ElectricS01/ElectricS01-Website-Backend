@@ -45,7 +45,9 @@ export default class Users extends Model {
   @Column
   directMessages!: string
 
-  @Column
+  @Column({
+    defaultValue: true
+  })
   friendRequests!: boolean
 
   @Column

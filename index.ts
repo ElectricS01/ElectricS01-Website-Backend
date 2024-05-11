@@ -47,7 +47,7 @@ const postLimiter = rateLimit({
 
 const limiter = rateLimit({
   legacyHeaders: false,
-  limit: 10,
+  limit: 20,
   message: {
     message: "Too many requests, Slow Down!"
   },
@@ -329,6 +329,29 @@ app.get("/api/sessions", auth, async (req: RequestUser, res: Response) => {
     }
   })
   res.json(sessions)
+})
+
+app.get("/api/friends", auth, async (req: RequestUser, res: Response) => {
+  const friends = await Friends.findAll({
+    where: {
+      friendId: req.user.id
+    },
+    include: [
+      {
+        as: "user",
+        attributes: [
+          "id",
+          "username",
+          "avatar",
+          "status",
+          "statusMessage",
+          "createdAt"
+        ],
+        model: Users
+      }
+    ]
+  })
+  res.json(friends)
 })
 
 app.post("/api/message", auth, async (req: RequestUser, res: Response) => {
