@@ -18,7 +18,7 @@ module.exports = {
       },
       description: {
         defaultValue: "This is a new chat",
-        type: Sequelize.STRING
+        type: Sequelize.TEXT
       },
       icon: {
         type: Sequelize.STRING

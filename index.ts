@@ -1445,6 +1445,12 @@ app.patch(
 )
 
 app.patch("/api/tetris", auth, async (req: RequestUser, res: Response) => {
+  if (!req.body.data) {
+    res.status(400).json({
+      message: "No content"
+    })
+    return
+  }
   const data = req.body.data.trim()
   const user = await Users.findOne({
     where: {

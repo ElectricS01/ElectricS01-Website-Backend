@@ -14,7 +14,7 @@ module.exports = {
       },
       messageContents: {
         allowNull: false,
-        type: Sequelize.STRING
+        type: Sequelize.TEXT
       },
       embeds: {
         defaultValue: [],
