@@ -3,7 +3,7 @@ Description=ElectricS01-Website-Backend Service
 
 [Service]
 Type=simple
-WorkingDirectory=/home/ec2-user/electrics01-website-backend
+WorkingDirectory=/var/www/html/electrics01-website-backend
 ExecStart=npm run prod
 Restart=always
 RestartSec=10
