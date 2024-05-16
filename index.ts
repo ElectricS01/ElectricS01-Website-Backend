@@ -195,7 +195,10 @@ const getChats = async function (userId: number) {
       type: 2
     }
   })
-  return [...chats1, ...chats2]
+  const uniqueChats2 = chats2.filter(
+    (chat2) => !chats1.some((chat1) => chat1.id === chat2.id)
+  )
+  return [...chats1, ...uniqueChats2]
 }
 
 const checkImage = async function (url: string) {
