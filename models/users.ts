@@ -57,6 +57,9 @@ export default class Users extends Model {
   statusMessage!: string
 
   @Column
+  gameStatus!: string
+
+  @Column
   showCreated!: boolean
 
   @Column

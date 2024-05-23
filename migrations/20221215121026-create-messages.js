@@ -27,6 +27,9 @@ module.exports = {
       reply: {
         type: Sequelize.INTEGER
       },
+      chatId: {
+        type: Sequelize.INTEGER
+      },
       createdAt: {
         allowNull: false,
         type: Sequelize.DATE

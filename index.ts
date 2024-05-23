@@ -1439,6 +1439,7 @@ app.patch(
                 avatar: req.user.avatar,
                 friend: friend?.status,
                 friendRequests: req.user.friendRequests,
+                gameStatus: req.user.gameStatus,
                 id: req.user.id,
                 status: req.user.status,
                 statusMessage: req.user.statusMessage,
@@ -1585,6 +1586,7 @@ app.patch(
                     avatar: checkUser.avatar,
                     friend: friend?.status,
                     friendRequests: checkUser.friendRequests,
+                    gameStatus: checkUser.gameStatus,
                     id: checkUser.id,
                     status: checkUser.status,
                     statusMessage: checkUser.statusMessage,
@@ -1703,6 +1705,7 @@ wss.on("connection", (ws: AuthWebSocket) => {
                   avatar: ws.user.avatar,
                   friend: friend?.status,
                   friendRequests: ws.user.friendRequests,
+                  gameStatus: ws.user.gameStatus,
                   id: ws.user.id,
                   status: ws.user.status,
                   statusMessage: ws.user.statusMessage,
@@ -1714,11 +1717,58 @@ wss.on("connection", (ws: AuthWebSocket) => {
         }
       )
       await Promise.all(sendPromises)
+    } else if (socketMessage.page !== undefined) {
+      if (ws.user) {
+        const user = await Users.findOne({
+          where: {
+            id: ws.user.id
+          }
+        })
+        if (
+          socketMessage.page === "Tetris" ||
+          socketMessage.page === "Collider" ||
+          socketMessage.page === "TonkGame"
+        )
+          socketMessage.page = `Playing  ${socketMessage.page}`
+        await user?.update({
+          gameStatus: socketMessage.page
+        })
+        if (user) ws.user = user
+        const sendPromises = Array.from(wss.clients).map(
+          async (wsClient: WebSocket) => {
+            if (
+              (wsClient as AuthWebSocket)?.user &&
+              (wsClient as AuthWebSocket).user.id !== ws.user.id
+            ) {
+              const friend = await Friends.findOne({
+                where: {
+                  userId: ws.user.id
+                }
+              })
+              wsClient.send(
+                JSON.stringify({
+                  changeUser: {
+                    avatar: ws.user.avatar,
+                    friend: friend?.status,
+                    friendRequests: ws.user.friendRequests,
+                    gameStatus: ws.user.gameStatus,
+                    id: ws.user.id,
+                    status: ws.user.status,
+                    statusMessage: ws.user.statusMessage,
+                    username: ws.user.username
+                  }
+                })
+              )
+            }
+          }
+        )
+        await Promise.all(sendPromises)
+      }
     }
   })
   ws.on("close", async () => {
     if (ws.user) {
-      await ws.user.update({ status: "offline" })
+      await ws.user.update({ gameStatus: null, status: "offline" })
       const sendPromises = Array.from(wss.clients).map(
         async (wsClient: WebSocket) => {
           if ((wsClient as AuthWebSocket)?.user) {
@@ -1733,6 +1783,7 @@ wss.on("connection", (ws: AuthWebSocket) => {
                   avatar: ws.user.avatar,
                   friend: friend?.status,
                   friendRequests: ws.user.friendRequests,
+                  gameStatus: ws.user.gameStatus,
                   id: ws.user.id,
                   status: ws.user.status,
                   statusMessage: ws.user.statusMessage,
