@@ -106,6 +106,7 @@ const getChat = async function (chatId: string, userId: number) {
           "avatar",
           "status",
           "statusMessage",
+          "gameStatus",
           "friendRequests"
         ],
         include: [
@@ -125,7 +126,7 @@ const getChat = async function (chatId: string, userId: number) {
     where: { chatId }
   })
   let users = chatAssociations.map((mapAssociation) => mapAssociation.user)
-  if (users.length === 0) {
+  if (chat.type === 2) {
     users = await Users.findAll({
       attributes: [
         "id",
@@ -133,6 +134,7 @@ const getChat = async function (chatId: string, userId: number) {
         "avatar",
         "status",
         "statusMessage",
+        "gameStatus",
         "friendRequests"
       ],
       include: [
@@ -339,9 +341,6 @@ app.get("/api/sessions", auth, async (req: RequestUser, res: Response) => {
 
 app.get("/api/friends", auth, async (req: RequestUser, res: Response) => {
   const friends = await Friends.findAll({
-    where: {
-      friendId: req.user.id
-    },
     include: [
       {
         as: "user",
@@ -351,11 +350,15 @@ app.get("/api/friends", auth, async (req: RequestUser, res: Response) => {
           "avatar",
           "status",
           "statusMessage",
+          "gameStatus",
           "createdAt"
         ],
         model: Users
       }
-    ]
+    ],
+    where: {
+      friendId: req.user.id
+    }
   })
   res.json(friends)
 })
@@ -426,16 +429,6 @@ app.post("/api/message", auth, async (req: RequestUser, res: Response) => {
     await association?.update({
       lastRead: messages
     })
-    const chatAssociations = await ChatAssociations.findAll({
-      include: [
-        {
-          as: "user",
-          attributes: ["id", "username", "avatar", "status", "statusMessage"],
-          model: Users
-        }
-      ],
-      where: { chatId: req.body.chatId }
-    })
     await ChatAssociations.increment("notifications", {
       where: { chatId: req.body.chatId }
     })
@@ -443,18 +436,15 @@ app.post("/api/message", auth, async (req: RequestUser, res: Response) => {
       { notifications: 0 },
       { where: { chatId: req.body.chatId, userId: req.user.id } }
     )
-    let users = chatAssociations.map((mapAssociation) => mapAssociation.user)
-    if (users.length === 0) {
-      users = await Users.findAll({
-        attributes: ["id", "username", "avatar", "status", "statusMessage"]
-      })
-    }
+    const chatAssociations = await ChatAssociations.findAll({
+      where: { chatId: req.body.chatId }
+    })
     wss.clients.forEach((wsClient: WebSocket) => {
       if ((wsClient as AuthWebSocket)?.user) {
-        const user = users.find(
-          (findUser) => findUser.id === (wsClient as AuthWebSocket).user?.id
+        const user = chatAssociations.find(
+          (findUser) => findUser.userId === (wsClient as AuthWebSocket).user?.id
         )
-        if (user && user.id !== lastMessage.userId)
+        if (user && user.userId !== lastMessage.userId)
           wsClient.send(JSON.stringify({ newMessage: lastMessage }))
       }
     })
@@ -855,8 +845,8 @@ app.post(
         userId: user.id
       })
       await Notifications.create({
-        userId: user.id,
-        otherId: req.user.id
+        otherId: req.user.id,
+        userId: user.id
       })
       res.sendStatus(204)
       return
@@ -1387,16 +1377,16 @@ app.patch(
       })
       await resolveEmbeds(message)
       const editedMessage = await Messages.findOne({
-        where: {
-          id: message.id
-        },
         include: [
           {
             as: "user",
             attributes: ["id", "username", "avatar"],
             model: Users
           }
-        ]
+        ],
+        where: {
+          id: message.id
+        }
       })
       res.json(editedMessage)
     }
@@ -1584,14 +1574,14 @@ app.patch(
                 JSON.stringify({
                   newUser: {
                     avatar: checkUser.avatar,
+                    chat: req.params.chatId,
                     friend: friend?.status,
                     friendRequests: checkUser.friendRequests,
                     gameStatus: checkUser.gameStatus,
                     id: checkUser.id,
                     status: checkUser.status,
                     statusMessage: checkUser.statusMessage,
-                    username: checkUser.username,
-                    chat: req.params.chatId
+                    username: checkUser.username
                   }
                 })
               )
@@ -1600,9 +1590,9 @@ app.patch(
         )
         await Promise.all(sendPromises)
         await Notifications.create({
-          userId,
           otherId: req.params.chat,
-          type: 1
+          type: 1,
+          userId
         })
       }
     })
@@ -1610,16 +1600,54 @@ app.patch(
       include: [
         {
           as: "user",
-          attributes: ["id", "username", "avatar", "status", "statusMessage"],
+          attributes: [
+            "id",
+            "username",
+            "avatar",
+            "status",
+            "statusMessage",
+            "gameStatus",
+            "friendRequests"
+          ],
+          include: [
+            {
+              as: "friend",
+              attributes: ["status"],
+              model: Friends,
+              required: false,
+              where: {
+                userId: req.user.id
+              }
+            }
+          ],
           model: Users
         }
       ],
-      where: { chatId: req.params.chat }
+      where: { chatId: req.user.id }
     })
     let users = chatAssociations.map((association) => association.user)
-    if (users.length === 0) {
+    if (chat.type === 2) {
       users = await Users.findAll({
-        attributes: ["id", "username", "avatar", "status", "statusMessage"]
+        attributes: [
+          "id",
+          "username",
+          "avatar",
+          "status",
+          "statusMessage",
+          "gameStatus",
+          "friendRequests"
+        ],
+        include: [
+          {
+            as: "friend",
+            attributes: ["status"],
+            model: Friends,
+            required: false,
+            where: {
+              userId: req.user.id
+            }
+          }
+        ]
       })
     }
     chat.dataValues.users = users
