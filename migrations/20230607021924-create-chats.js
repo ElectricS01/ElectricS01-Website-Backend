@@ -29,6 +29,20 @@ module.exports = {
         defaultValue: true,
         type: Sequelize.BOOLEAN
       },
+      allowInvite: {
+        allowNull: false,
+        defaultValue: "Member",
+        type: Sequelize.STRING
+      },
+      type: {
+        allowNull: false,
+        defaultValue: 0,
+        type: Sequelize.INTEGER
+      },
+      latest: {
+        allowNull: false,
+        type: Sequelize.DATE
+      },
       createdAt: {
         allowNull: false,
         type: Sequelize.DATE

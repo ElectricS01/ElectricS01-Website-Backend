@@ -66,12 +66,6 @@ module.exports = {
       statusMessage: {
         type: Sequelize.STRING
       },
-      tetris: {
-        type: Sequelize.STRING
-      },
-      tonkGame: {
-        type: Sequelize.STRING
-      },
       createdAt: {
         allowNull: false,
         type: Sequelize.DATE

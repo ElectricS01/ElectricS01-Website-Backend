@@ -1,7 +1,7 @@
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
   async up(queryInterface, Sequelize) {
-    await queryInterface.createTable("ChatAssociations", {
+    await queryInterface.createTable("Scores", {
       id: {
         allowNull: false,
         autoIncrement: true,
@@ -12,14 +12,17 @@ module.exports = {
         allowNull: false,
         type: Sequelize.INTEGER
       },
-      chatId: {
+      gameId: {
         allowNull: false,
         type: Sequelize.INTEGER
       },
-      type: {
+      difficulty: {
         allowNull: false,
-        defaultValue: "Member",
-        type: Sequelize.STRING
+        type: Sequelize.INTEGER
+      },
+      value: {
+        allowNull: false,
+        type: Sequelize.INTEGER
       },
       createdAt: {
         allowNull: false,
@@ -32,6 +35,6 @@ module.exports = {
     })
   },
   async down(queryInterface) {
-    await queryInterface.dropTable("ChatAssociations")
+    await queryInterface.dropTable("Scores")
   }
 }

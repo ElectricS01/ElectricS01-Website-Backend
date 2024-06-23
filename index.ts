@@ -17,6 +17,7 @@ import resolveEmbeds from "./lib/resolveEmbeds"
 import nodemailerLibrary from "./lib/mailer"
 
 import Messages from "./models/messages"
+import Scores from "./models/scores"
 import Users from "./models/users"
 import Sessions from "./models/sessions"
 import Friends from "./models/friends"
@@ -284,10 +285,16 @@ app.get("/api/user", auth, async (req: RequestUser, res: Response) => {
       userId: req.user.id
     }
   })
+  const tetris = await Scores.findAll({
+    where: {
+      userId: req.user.id
+    }
+  })
   getChats(req.user.id).then((chatsList) => {
     res.json({
       chatsList,
       notifications,
+      tetris,
       ...req.user.toJSON(),
       emailToken: undefined,
       password: undefined,
@@ -706,6 +713,15 @@ app.post("/api/get-user", auth, async (req: RequestUser, res: Response) => {
           friendId: parseInt(req.body.userId, 10),
           userId: req.user.id
         }
+      },
+      {
+        as: "tetris",
+        attributes: ["difficulty", "value", "gameId"],
+        model: Scores,
+        required: false,
+        where: {
+          userId: parseInt(req.body.userId, 10)
+        }
       }
     ],
     where: { id: req.body.userId }
@@ -724,11 +740,6 @@ app.post("/api/get-user", auth, async (req: RequestUser, res: Response) => {
 })
 
 app.post("/api/user-prop", auth, async (req: RequestUser, res: Response) => {
-  const user = await Users.findOne({
-    where: {
-      id: req.user.id
-    }
-  })
   const properties: string[] = [
     "directMessages",
     "friendRequests",
@@ -740,7 +751,7 @@ app.post("/api/user-prop", auth, async (req: RequestUser, res: Response) => {
     "encryption",
     "savePrivateKey"
   ]
-  if (!user || !properties.includes(req.body.property)) {
+  if (!properties.includes(req.body.property)) {
     return res.status(400).json({
       message: "No property selected"
     })
@@ -771,16 +782,16 @@ app.post("/api/user-prop", auth, async (req: RequestUser, res: Response) => {
       message: "Invalid request"
     })
   }
-  await user.update({
+  await req.user.update({
     [req.body.property]: req.body.val
   })
   if (req.body.property === "saveSwitcher") {
-    await user.update({
+    await req.user.update({
       switcherHistory: []
     })
   }
   if (req.body.property === "savePrivateKey") {
-    await user.update({
+    await req.user.update({
       privateKey: null
     })
   }
@@ -976,18 +987,7 @@ app.post("/api/history", auth, async (req: RequestUser, res: Response) => {
     })
     return
   }
-  const user = await Users.findOne({
-    where: {
-      id: req.user.id
-    }
-  })
-  if (!user) {
-    res.status(400).json({
-      message: "This user does not exist"
-    })
-    return
-  }
-  await user.update({
+  await req.user.update({
     switcherHistory: req.body.history
   })
   res.sendStatus(204)
@@ -1032,27 +1032,17 @@ app.post(
 )
 
 app.post("/api/verify", auth, async (req: RequestUser, res: Response) => {
-  const user = await Users.findOne({
-    where: {
-      id: req.user.id
-    }
-  })
-  if (!user) {
-    return res.status(400).json({
-      message: "This user does not exist"
-    })
-  }
-  if (!user.emailToken || user.emailVerified) {
+  if (!req.user.emailToken || req.user.emailVerified) {
     return res.status(400).json({
       message: "Account is already verified"
     })
   }
-  if (user.emailToken !== req.body.token) {
+  if (req.user.emailToken !== req.body.token) {
     return res.status(401).json({
       message: "Token invalid"
     })
   }
-  await user.update({
+  await req.user.update({
     emailToken: false,
     emailVerified: true
   })
@@ -1445,36 +1435,48 @@ app.patch(
   }
 )
 
-app.patch("/api/tetris", auth, async (req: RequestUser, res: Response) => {
-  if (!req.body.data) {
+app.patch("/api/score", auth, async (req: RequestUser, res: Response) => {
+  if (!req.body.gameId) {
     res.status(400).json({
-      message: "No content"
+      message: "No game specified"
     })
     return
   }
-  const data = req.body.data.trim()
-  const user = await Users.findOne({
-    where: {
-      id: req.user.id
+  if (!req.body.scores) {
+    res.status(400).json({
+      message: "No score value specified"
+    })
+    return
+  }
+  if (req.body.scores.length > 5) {
+    res.status(400).json({
+      message: "Invalid score value"
+    })
+    return
+  }
+  req.body.scores.map(async (score: { difficulty: number; value: number }) => {
+    if (score.value === null || isNaN(score.value)) {
+      return
+    }
+    console.log(score.value)
+    const value = await Scores.findOne({
+      where: {
+        difficulty: score.difficulty || 0,
+        gameId: req.body.gameId,
+        userId: req.user.id
+      }
+    })
+    if (value) {
+      await value.update({ value: score.value })
+    } else {
+      await Scores.create({
+        difficulty: score.difficulty || 0,
+        gameId: req.body.gameId,
+        userId: req.user.id,
+        value: score.value
+      })
     }
   })
-  if (!user || !data) {
-    res.status(400).json({
-      message: "No content"
-    })
-    return
-  }
-  if (data.length > 500) {
-    res.status(400).json({
-      message: "Data too long"
-    })
-    return
-  }
-  if (data !== user.tetris) {
-    await user.update({
-      tetris: data
-    })
-  }
   res.sendStatus(204)
 })
 
