@@ -1455,10 +1455,14 @@ app.patch("/api/score", auth, async (req: RequestUser, res: Response) => {
     return
   }
   req.body.scores.map(async (score: { difficulty: number; value: number }) => {
-    if (score.value === null || isNaN(score.value)) {
+    if (
+      score.value === null ||
+      isNaN(score.value) ||
+      score.difficulty === null ||
+      isNaN(score.difficulty)
+    ) {
       return
     }
-    console.log(score.value)
     const value = await Scores.findOne({
       where: {
         difficulty: score.difficulty || 0,
