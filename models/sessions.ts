@@ -20,8 +20,8 @@ export default class Sessions extends Model {
   user!: Users
 
   @Column
-  expiredAt!: Date
+  userAgent!: string
 
   @Column
-  userAgent!: string
+  expiredAt!: Date
 }

@@ -531,7 +531,7 @@ app.post("/api/register", async (req: Request, res: Response) => {
       req.body.password.length < 1 ||
       req.body.email.length < 1
     ) {
-      res.status(500).json({
+      res.status(400).json({
         message: "Form not complete"
       })
       return
@@ -586,7 +586,29 @@ app.post("/api/register", async (req: Request, res: Response) => {
       userAgent: req.body.userAgent,
       userId: user.id
     })
-    res.json({ token: session.token })
+    const notifications = await Notifications.findAll({
+      where: {
+        userId: user.id
+      }
+    })
+    const tetris = await Scores.findAll({
+      where: {
+        userId: user.id
+      }
+    })
+    getChats(user.id).then((chatsList) => {
+      res.json({
+        chatsList,
+        notifications,
+        tetris,
+        token: session.token,
+        ...user.toJSON(),
+        emailToken: undefined,
+        password: undefined,
+        privateKey: undefined,
+        updatedAt: undefined
+      })
+    })
   } catch (e) {
     console.log(e)
     res.status(500).json({
@@ -596,42 +618,54 @@ app.post("/api/register", async (req: Request, res: Response) => {
 })
 
 app.post("/api/login", async (req: Request, res: Response) => {
-  try {
-    if (req.body.username.length < 1 || req.body.password.length < 1) {
-      res.status(500)
-      res.json({
-        message: "Form not complete"
-      })
-      return
-    }
-    const user = await Users.findOne({
-      where: {
-        username: req.body.username
-      }
-    })
-    if (!user) {
-      res.status(401).json({ message: "User not found" })
-      return
-    }
-    if (!(await argon2.verify(user.password, req.body.password))) {
-      res.status(401).json({ message: "Incorrect password" })
-      return
-    }
-    const session = await Sessions.create({
-      token: cryptoRandomString({ length: 128 }),
-      userAgent: req.body.userAgent,
-      userId: user.id
-    })
+  if (req.body.username.length < 1 || req.body.password.length < 1) {
+    res.status(400)
     res.json({
-      token: session.token,
-      user
+      message: "Form not complete"
     })
-  } catch (e) {
-    console.log(e)
-    res.status(500).json({
-      message: "Something went wrong"
-    })
+    return
   }
+  const user = await Users.findOne({
+    where: {
+      username: req.body.username
+    }
+  })
+  if (!user) {
+    res.status(401).json({ message: "User not found" })
+    return
+  }
+  if (!(await argon2.verify(user.password, req.body.password))) {
+    res.status(401).json({ message: "Incorrect password" })
+    return
+  }
+  const session = await Sessions.create({
+    token: cryptoRandomString({ length: 128 }),
+    userAgent: req.body.userAgent,
+    userId: user.id
+  })
+  const notifications = await Notifications.findAll({
+    where: {
+      userId: user.id
+    }
+  })
+  const tetris = await Scores.findAll({
+    where: {
+      userId: user.id
+    }
+  })
+  getChats(user.id).then((chatsList) => {
+    res.json({
+      chatsList,
+      notifications,
+      tetris,
+      token: session.token,
+      ...user.toJSON(),
+      emailToken: undefined,
+      password: undefined,
+      privateKey: undefined,
+      updatedAt: undefined
+    })
+  })
 })
 
 app.post("/api/reset-password", async (req: Request, res: Response) => {

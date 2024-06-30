@@ -12,15 +12,24 @@ class NodemailerLibrary {
   private transporter: Transporter
 
   constructor() {
-    const options = {
-      auth: {
-        pass: process.env.EMAIL_PASSWORD,
-        user: process.env.EMAIL_USERNAME
-      },
-      host: process.env.EMAIL_SERVICE,
-      port: Number(process.env.EMAIL_PORT),
-      secure: process.env.EMAIL_SECURE === "true"
-    }
+    const options =
+      process.env.EMAIL_SERVICE === "smtp.mail.me.com"
+        ? {
+            auth: {
+              pass: process.env.EMAIL_PASSWORD,
+              user: process.env.EMAIL_USERNAME
+            },
+            service: "icloud"
+          }
+        : {
+            auth: {
+              pass: process.env.EMAIL_PASSWORD,
+              user: process.env.EMAIL_USERNAME
+            },
+            host: process.env.EMAIL_SERVICE,
+            port: Number(process.env.EMAIL_PORT),
+            secure: process.env.EMAIL_SECURE === "true"
+          }
 
     this.transporter = nodemailer.createTransport(options)
   }
