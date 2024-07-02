@@ -19,15 +19,15 @@
     "express": "^4.19.2",
     "express-rate-limit": "^7.3.1",
     "mariadb": "^3.3.1",
-    "mysql2": "^3.10.0",
-    "nodemailer": "^6.9.13",
-    "open-graph-scraper": "^6.5.2",
+    "mysql2": "^3.10.2",
+    "nodemailer": "^6.9.14",
+    "open-graph-scraper": "^6.6.2",
     "reflect-metadata": "^0.2.2",
     "sequelize": "^6.37.3",
     "sequelize-typescript": "^2.1.6",
     "ts-node": "^10.9.2",
-    "typescript": "^5.4.5",
-    "ws": "^8.17.0"
+    "typescript": "^5.5.3",
+    "ws": "^8.17.1"
   },
   "devDependencies": {
     "@stylistic/eslint-plugin-js": "^1.8.1",
