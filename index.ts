@@ -27,7 +27,9 @@ import ChatAssociations from "./models/chatAssociations"
 import Notifications from "./models/notifications"
 import * as process from "node:process"
 
-sequelize.sync()
+sequelize
+
+Users.update({ gameStatus: null, status: "offline" }, { where: {} })
 
 const express = require("express")
 const app = express()

@@ -1,10 +1,4 @@
-import {
-  BelongsTo,
-  Column,
-  ForeignKey,
-  Model,
-  Table
-} from "sequelize-typescript"
+import { Column, ForeignKey, Model, Table } from "sequelize-typescript"
 import Users from "../models/users"
 
 @Table
