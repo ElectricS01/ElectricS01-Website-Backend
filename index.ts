@@ -721,7 +721,7 @@ app.post("/api/get-user", auth, async (req: RequestUser, res: Response) => {
       })
       return
     }
-    res.json(user)
+    res.json(user.id)
     return
   }
   const user = await Users.findOne({
