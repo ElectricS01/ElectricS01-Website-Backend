@@ -1720,7 +1720,19 @@ app.patch(
       })
       return
     }
-    if (message.id !== req.user.id && !req.user.admin) {
+    const chat = await Chats.findOne({
+      where: {
+        id: message.chatId
+      }
+    })
+    if (!chat) {
+      res.status(400).json({
+        message: "Chat does not exist"
+      })
+      return
+    }
+    console.log(chat)
+    if (chat.type !== 1 && chat.owner !== req.user.id) {
       res.status(403).json({
         message: "Forbidden"
       })
