@@ -3,7 +3,7 @@ import {
   Column,
   DataType,
   ForeignKey,
-  HasMany,
+  HasOne,
   Model,
   Table
 } from "sequelize-typescript"
@@ -46,8 +46,8 @@ export default class Chats extends Model {
   })
   type!: number
 
-  @HasMany(() => ChatAssociations)
-  associations!: ChatAssociations[]
+  @HasOne(() => ChatAssociations)
+  association!: ChatAssociations
 
   @BelongsTo(() => Users, {
     as: "ownerDetails",

@@ -21,6 +21,11 @@ module.exports = {
         defaultValue: "Member",
         type: Sequelize.STRING
       },
+      lastRead: {
+        allowNull: false,
+        defaultValue: -1,
+        type: Sequelize.INTEGER
+      },
       createdAt: {
         allowNull: false,
         type: Sequelize.DATE

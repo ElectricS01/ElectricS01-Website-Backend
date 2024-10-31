@@ -1,4 +1,11 @@
-import { Column, DataType, HasMany, Model, Table } from "sequelize-typescript"
+import {
+  Column,
+  DataType,
+  HasOne,
+  HasMany,
+  Model,
+  Table
+} from "sequelize-typescript"
 import Friends from "../models/friends"
 import Scores from "../models/scores"
 
@@ -81,8 +88,8 @@ export default class Users extends Model {
   @Column({ defaultValue: [], type: DataType.JSON })
   switcherHistory!: boolean
 
-  @HasMany(() => Friends, "friendId")
-  friend!: Friends[]
+  @HasOne(() => Friends, "friendId")
+  friend!: Friends
 
   @HasMany(() => Scores, "userId")
   tetris!: Scores[]
