@@ -5,7 +5,7 @@
   "main": "index.ts",
   "scripts": {
     "dev": "ts-node-dev -r dotenv/config --respawn --transpile-only index.ts",
-    "prod": "ts-node-esm -r dotenv/config index.ts",
+    "prod": "ts-node -r dotenv/config index.ts",
     "lint": "eslint --ext .js,.ts --ignore-path .gitignore --fix ./",
     "lint-no-fix": "eslint --ext .js,.ts --ignore-path .gitignore ./"
   },
@@ -34,7 +34,7 @@
     "@types/express": "^4.17.21",
     "@types/nodemailer": "^6.4.16",
     "@types/sequelize": "^4.28.20",
-    "@types/ws": "^8.5.12",
+    "@types/ws": "^8.5.13",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
     "@typescript-eslint/parser": "^6.21.0",
     "eslint": "^8.57.1",
