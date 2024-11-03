@@ -1,6 +1,7 @@
 import axios, { AxiosResponse } from "axios"
 import cryptoRandomString from "crypto-random-string"
-import ogs, { ErrorResult, SuccessResult } from "open-graph-scraper"
+import { ErrorResult, SuccessResult } from "open-graph-scraper/types/lib/types"
+import ogs from "open-graph-scraper"
 
 import Messages from "../models/messages"
 
