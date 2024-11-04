@@ -374,8 +374,8 @@ app.get("/api/friends", auth, async (req: RequestUser, res: Response) => {
 
 app.post("/api/message", auth, async (req: RequestUser, res: Response) => {
   try {
-    const messageText = req.body.messageContents.trim()
-    if (messageText < 1) {
+    const messageText = req.body.messageContents?.trim()
+    if (!messageText || messageText < 1) {
       res.status(400).json({
         message: "Message has no content"
       })
@@ -529,6 +529,9 @@ app.post("/api/create-chat", auth, async (req: RequestUser, res: Response) => {
 app.post("/api/register", async (req: Request, res: Response) => {
   try {
     if (
+      !req.body.username ||
+      !req.body.password ||
+      !req.body.email ||
       req.body.username.length < 1 ||
       req.body.password.length < 1 ||
       req.body.email.length < 1
@@ -620,7 +623,12 @@ app.post("/api/register", async (req: Request, res: Response) => {
 })
 
 app.post("/api/login", async (req: Request, res: Response) => {
-  if (req.body.username.length < 1 || req.body.password.length < 1) {
+  if (
+    !req.body.username ||
+    !req.body.password ||
+    req.body.username.length < 1 ||
+    req.body.password.length < 1
+  ) {
     res.status(400)
     res.json({
       message: "Form not complete"
@@ -672,7 +680,7 @@ app.post("/api/login", async (req: Request, res: Response) => {
 
 app.post("/api/reset-password", async (req: Request, res: Response) => {
   try {
-    if (req.body.email.length < 1) {
+    if (!req.body.email || req.body.email.length < 1) {
       res.status(500).json({
         message: "Form not complete"
       })
@@ -991,7 +999,7 @@ app.post(
 )
 
 app.post("/api/feedback", auth, async (req: RequestUser, res: Response) => {
-  if (req.body.feedback.length < 1) {
+  if (!req.body.feedback || req.body.feedback.length < 1) {
     res.status(400).json({
       message: "Feedback has no content"
     })
@@ -1011,7 +1019,7 @@ app.post("/api/feedback", auth, async (req: RequestUser, res: Response) => {
 })
 
 app.post("/api/history", auth, async (req: RequestUser, res: Response) => {
-  if (req.body.history.length < 1) {
+  if (!req.body.history || req.body.history.length < 1) {
     res.status(400).json({
       message: "History has no content"
     })
@@ -1383,7 +1391,7 @@ app.patch(
   "/api/edit/:messageId",
   auth,
   async (req: RequestUser, res: Response) => {
-    const messageText = req.body.messageContents.trim()
+    const messageText = req.body.messageContents?.trim()
     const message = await Messages.findOne({
       where: {
         id: req.params.messageId,
@@ -1423,7 +1431,7 @@ app.patch(
   "/api/edit-status-message",
   auth,
   async (req: RequestUser, res: Response) => {
-    const statusText = req.body.statusMessage.trim()
+    const statusText = req.body.statusMessage?.trim()
     if (!statusText) {
       res.status(400).json({
         message: "Status has no content"
