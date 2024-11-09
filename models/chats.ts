@@ -4,11 +4,13 @@ import {
   DataType,
   ForeignKey,
   HasOne,
+  HasMany,
   Model,
   Table
 } from "sequelize-typescript"
 import ChatAssociations from "./chatAssociations"
 import Users from "./users"
+import Messages from "./messages"
 
 @Table
 export default class Chats extends Model {
@@ -48,6 +50,12 @@ export default class Chats extends Model {
 
   @HasOne(() => ChatAssociations)
   association!: ChatAssociations
+
+  @HasMany(() => Messages)
+  messages!: Messages
+
+  @HasMany(() => Messages)
+  pins!: Messages
 
   @BelongsTo(() => Users, {
     as: "ownerDetails",

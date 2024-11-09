@@ -8,6 +8,7 @@ import {
 } from "sequelize-typescript"
 import type { Embed } from "../types/embeds"
 import Users from "./users"
+import Chats from "./chats"
 
 @Table
 export default class Messages extends Model {
@@ -27,6 +28,7 @@ export default class Messages extends Model {
   @Column
   reply!: number
 
+  @ForeignKey(() => Chats)
   @Column
   chatId!: number
 

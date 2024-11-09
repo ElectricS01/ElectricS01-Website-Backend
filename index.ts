@@ -64,6 +64,32 @@ const getChat = async function (chatId: string, userId: number) {
       {
         attributes: ["id", "username", "avatar"],
         model: Users
+      },
+      {
+        as: "messages",
+        include: [
+          {
+            as: "user",
+            attributes: ["id", "username", "avatar"],
+            model: Users
+          }
+        ],
+        model: Messages,
+        required: false,
+        where: { chatId }
+      },
+      {
+        as: "pins",
+        include: [
+          {
+            as: "user",
+            attributes: ["id", "username", "avatar"],
+            model: Users
+          }
+        ],
+        model: Messages,
+        required: false,
+        where: { chatId, pinned: true }
       }
     ],
     where: {
@@ -73,64 +99,16 @@ const getChat = async function (chatId: string, userId: number) {
   if (!chat) {
     return null
   }
-  chat.dataValues.messages = await Messages.findAll({
-    include: [
-      {
-        as: "user",
-        attributes: ["id", "username", "avatar"],
-        model: Users
-      }
-    ],
-    where: { chatId }
-  })
-  chat.dataValues.pins = await Messages.findAll({
-    include: [
-      {
-        as: "user",
-        attributes: ["id", "username", "avatar"],
-        model: Users
-      }
-    ],
-    where: { chatId, pinned: true }
-  })
   const association = await ChatAssociations.findOne({
     where: {
       chatId,
       userId
     }
   })
-  const chatAssociations = await ChatAssociations.findAll({
-    include: [
-      {
-        as: "user",
-        attributes: [
-          "id",
-          "username",
-          "avatar",
-          "status",
-          "statusMessage",
-          "gameStatus",
-          "friendRequests"
-        ],
-        include: [
-          {
-            as: "friend",
-            attributes: ["status"],
-            model: Friends,
-            required: false,
-            where: {
-              userId
-            }
-          }
-        ],
-        model: Users
-      }
-    ],
-    where: { chatId }
-  })
-  let users = chatAssociations.map((mapAssociation) => mapAssociation.user)
+  chat.dataValues.lastRead = association?.lastRead
+  chat.dataValues.notifications = association?.notifications
   if (chat.type === 2) {
-    users = await Users.findAll({
+    chat.dataValues.users = await Users.findAll({
       attributes: [
         "id",
         "username",
@@ -152,10 +130,40 @@ const getChat = async function (chatId: string, userId: number) {
         }
       ]
     })
+  } else {
+    const chatAssociations = await ChatAssociations.findAll({
+      include: [
+        {
+          as: "user",
+          attributes: [
+            "id",
+            "username",
+            "avatar",
+            "status",
+            "statusMessage",
+            "gameStatus",
+            "friendRequests"
+          ],
+          include: [
+            {
+              as: "friend",
+              attributes: ["status"],
+              model: Friends,
+              required: false,
+              where: {
+                userId
+              }
+            }
+          ],
+          model: Users
+        }
+      ],
+      where: { chatId }
+    })
+    chat.dataValues.users = chatAssociations.map(
+      (mapAssociation) => mapAssociation.user
+    )
   }
-  chat.dataValues.users = users
-  chat.dataValues.lastRead = association?.lastRead
-  chat.dataValues.notifications = association?.notifications
   return chat
 }
 
@@ -1172,6 +1180,21 @@ app.post("/api/read-new/:id", auth, async (req: RequestUser, res: Response) => {
     })
   }
   const chat = await Chats.findOne({
+    attributes: ["id"],
+    include: [
+      {
+        as: "messages",
+        model: Messages,
+        required: false,
+        where: { chatId: req.params.id }
+      },
+      {
+        as: "association",
+        attributes: ["id", "lastRead", "notifications"],
+        model: ChatAssociations,
+        where: { chatId: req.params.id, userId: req.user.id }
+      }
+    ],
     where: {
       id: req.params.id
     }
@@ -1181,28 +1204,12 @@ app.post("/api/read-new/:id", auth, async (req: RequestUser, res: Response) => {
       message: "Chat does not exist"
     })
   }
-  chat.dataValues.messages = await Messages.findAll({
-    include: [
-      {
-        as: "user",
-        attributes: ["id", "username", "avatar"],
-        model: Users
-      }
-    ],
-    where: { chatId: req.params.id }
-  })
-  const association = await ChatAssociations.findOne({
-    where: {
-      chatId: req.params.id,
-      userId: req.user.id
-    }
-  })
-  if (!association) {
+  if (!chat.association) {
     return res.status(400).json({
       message: "You do not have access to this chat"
     })
   }
-  await association.update({
+  await chat.association.update({
     lastRead: chat.dataValues.messages.length,
     notifications: 0
   })
@@ -1479,7 +1486,7 @@ app.patch(
   }
 )
 
-app.patch("/api/score", auth, async (req: RequestUser, res: Response) => {
+app.patch("/api/score", auth, (req: RequestUser, res: Response) => {
   if (!req.body.gameId) {
     res.status(400).json({
       message: "No game specified"
@@ -1646,38 +1653,8 @@ app.patch(
         })
       }
     })
-    const chatAssociations = await ChatAssociations.findAll({
-      include: [
-        {
-          as: "user",
-          attributes: [
-            "id",
-            "username",
-            "avatar",
-            "status",
-            "statusMessage",
-            "gameStatus",
-            "friendRequests"
-          ],
-          include: [
-            {
-              as: "friend",
-              attributes: ["status"],
-              model: Friends,
-              required: false,
-              where: {
-                userId: req.user.id
-              }
-            }
-          ],
-          model: Users
-        }
-      ],
-      where: { chatId: req.user.id }
-    })
-    let users = chatAssociations.map((association) => association.user)
     if (chat.type === 2) {
-      users = await Users.findAll({
+      chat.dataValues.users = await Users.findAll({
         attributes: [
           "id",
           "username",
@@ -1699,8 +1676,40 @@ app.patch(
           }
         ]
       })
+    } else {
+      const chatAssociations = await ChatAssociations.findAll({
+        include: [
+          {
+            as: "user",
+            attributes: [
+              "id",
+              "username",
+              "avatar",
+              "status",
+              "statusMessage",
+              "gameStatus",
+              "friendRequests"
+            ],
+            include: [
+              {
+                as: "friend",
+                attributes: ["status"],
+                model: Friends,
+                required: false,
+                where: {
+                  userId: req.user.id
+                }
+              }
+            ],
+            model: Users
+          }
+        ],
+        where: { chatId: chat.id }
+      })
+      chat.dataValues.users = chatAssociations.map(
+        (association) => association.user
+      )
     }
-    chat.dataValues.users = users
     getChats(req.user.id).then((chats) => {
       res.json({ chat, chats })
     })
