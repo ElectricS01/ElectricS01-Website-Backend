@@ -1608,51 +1608,56 @@ app.patch(
       ],
       where: { chatId: req.params.chat }
     })
-    req.body.users.map(async (userId: number) => {
-      const checkUser = await Users.findOne({
-        where: {
-          id: userId
-        }
-      })
-      if (checkUser) {
-        await ChatAssociations.create({
-          chatId: req.params.chat,
-          userId
+    await Promise.all(
+      req.body.users.map(async (userId: number) => {
+        const checkUser = await Users.findOne({
+          where: {
+            id: userId
+          }
         })
-        const sendPromises = Array.from(wss.clients).map(
-          async (wsClient: WebSocket) => {
-            if ((wsClient as AuthWebSocket)?.user) {
-              const friend = await Friends.findOne({
-                where: {
-                  userId: req.user.id
-                }
-              })
-              return wsClient.send(
-                JSON.stringify({
-                  newUser: {
-                    avatar: checkUser.avatar,
-                    chat: req.params.chatId,
-                    friend: friend?.status,
-                    friendRequests: checkUser.friendRequests,
-                    gameStatus: checkUser.gameStatus,
-                    id: checkUser.id,
-                    status: checkUser.status,
-                    statusMessage: checkUser.statusMessage,
-                    username: checkUser.username
+        if (checkUser) {
+          await ChatAssociations.create({
+            chatId: req.params.chat,
+            userId
+          })
+          const sendPromises = Array.from(wss.clients).map(
+            async (wsClient: WebSocket) => {
+              if (
+                (wsClient as AuthWebSocket)?.user &&
+                (wsClient as AuthWebSocket)?.user.id !== req.user.id
+              ) {
+                const friend = await Friends.findOne({
+                  where: {
+                    userId: req.user.id
                   }
                 })
-              )
+                return wsClient.send(
+                  JSON.stringify({
+                    newUser: {
+                      avatar: checkUser.avatar,
+                      chatId: req.params.chat,
+                      friend: friend?.status,
+                      friendRequests: checkUser.friendRequests,
+                      gameStatus: checkUser.gameStatus,
+                      id: checkUser.id,
+                      status: checkUser.status,
+                      statusMessage: checkUser.statusMessage,
+                      username: checkUser.username
+                    }
+                  })
+                )
+              }
             }
-          }
-        )
-        await Promise.all(sendPromises)
-        await Notifications.create({
-          otherId: req.params.chat,
-          type: 1,
-          userId
-        })
-      }
-    })
+          )
+          await Promise.all(sendPromises)
+          await Notifications.create({
+            otherId: req.params.chat,
+            type: 1,
+            userId
+          })
+        }
+      })
+    )
     if (chat.type === 2) {
       chat.dataValues.users = await Users.findAll({
         attributes: [
