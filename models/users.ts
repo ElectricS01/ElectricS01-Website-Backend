@@ -65,7 +65,13 @@ export default class Users extends Model {
   statusMessage!: string
 
   @Column
+  gameName!: string
+
+  @Column
   gameStatus!: string
+
+  @Column(DataType.DATE)
+  playingSince!: string
 
   @Column
   showCreated!: boolean
