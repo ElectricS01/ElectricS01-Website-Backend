@@ -1466,21 +1466,26 @@ app.patch(
     }
     const sendPromises = Array.from(wss.clients).map(
       async (wsClient: WebSocket) => {
-        if ((wsClient as AuthWebSocket)?.user) {
+        if (
+          (wsClient as AuthWebSocket)?.user &&
+          (wsClient as AuthWebSocket)?.user.id !== req.user.id
+        ) {
           const friend = await Friends.findOne({
             where: {
               friendId: req.user.id,
               userId: (wsClient as AuthWebSocket)?.user?.id
             }
           })
-          return wsClient.send(
+          wsClient.send(
             JSON.stringify({
               changeUser: {
                 avatar: req.user.avatar,
                 friend: { status: friend?.status },
                 friendRequests: req.user.friendRequests,
                 gameName: req.user.gameName,
+                gameStatus: req.user.gameStatus,
                 id: req.user.id,
+                playingSince: req.user.playingSince,
                 status: req.user.status,
                 statusMessage: req.user.statusMessage,
                 username: req.user.username
@@ -1508,7 +1513,7 @@ app.patch("/api/score", auth, (req: RequestUser, res: Response) => {
     })
     return
   }
-  if (req.body.scores.length > 5) {
+  if (req.body.scores.length > 6) {
     res.status(400).json({
       message: "Invalid score value"
     })
@@ -1519,9 +1524,34 @@ app.patch("/api/score", auth, (req: RequestUser, res: Response) => {
       score.value === null ||
       isNaN(score.value) ||
       score.difficulty === null ||
-      isNaN(score.difficulty)
+      isNaN(score.difficulty) ||
+      score.difficulty < -1 ||
+      score.difficulty > 4
     ) {
       return
+    }
+    if (score.difficulty === -1) {
+      if (score.value === 30) {
+        await req.user.update({
+          gameStatus: `Easy mode, ${req.body.scores[0].value} row${req.body.scores[0].value > 1 ? "s" : ""}`
+        })
+      } else if (score.value === 15) {
+        await req.user.update({
+          gameStatus: `Medium mode, ${req.body.scores[1].value} row${req.body.scores[1].value > 1 ? "s" : ""}`
+        })
+      } else if (score.value === 10) {
+        await req.user.update({
+          gameStatus: `Hard mode, ${req.body.scores[2].value} row${req.body.scores[2].value > 1 ? "s" : ""}`
+        })
+      } else if (score.value === 5) {
+        await req.user.update({
+          gameStatus: `God mode, ${req.body.scores[3].value} row${req.body.scores[3].value > 1 ? "s" : ""}`
+        })
+      } else if (score.value === 3) {
+        await req.user.update({
+          gameStatus: `Ultra Nightmare mode, ${req.body.scores[4].value} row${req.body.scores[4].value > 1 ? "s" : ""}`
+        })
+      }
     }
     const value = await Scores.findOne({
       where: {
@@ -1641,7 +1671,7 @@ app.patch(
                     userId: (wsClient as AuthWebSocket)?.user?.id
                   }
                 })
-                return wsClient.send(
+                wsClient.send(
                   JSON.stringify({
                     newUser: {
                       avatar: checkUser.avatar,
@@ -1649,7 +1679,9 @@ app.patch(
                       friend: { status: friend?.status },
                       friendRequests: checkUser.friendRequests,
                       gameName: checkUser.gameName,
+                      gameStatus: checkUser.gameStatus,
                       id: checkUser.id,
+                      playingSince: checkUser.playingSince,
                       status: checkUser.status,
                       statusMessage: checkUser.statusMessage,
                       username: checkUser.username
@@ -1821,7 +1853,9 @@ wss.on("connection", (ws: AuthWebSocket) => {
                   friend: { status: friend?.status },
                   friendRequests: ws.user.friendRequests,
                   gameName: ws.user.gameName,
+                  gameStatus: ws.user.gameStatus,
                   id: ws.user.id,
+                  playingSince: ws.user.playingSince,
                   status: ws.user.status,
                   statusMessage: ws.user.statusMessage,
                   username: ws.user.username
@@ -1870,7 +1904,9 @@ wss.on("connection", (ws: AuthWebSocket) => {
                       friend: { status: friend?.status },
                       friendRequests: ws.user.friendRequests,
                       gameName: ws.user.gameName,
+                      gameStatus: ws.user.gameStatus,
                       id: ws.user.id,
+                      playingSince: ws.user.playingSince,
                       status: ws.user.status,
                       statusMessage: ws.user.statusMessage,
                       username: ws.user.username
@@ -1902,14 +1938,16 @@ wss.on("connection", (ws: AuthWebSocket) => {
                 userId: (wsClient as AuthWebSocket)?.user?.id
               }
             })
-            return wsClient.send(
+            wsClient.send(
               JSON.stringify({
                 changeUser: {
                   avatar: ws.user.avatar,
                   friend: { status: friend?.status },
                   friendRequests: ws.user.friendRequests,
                   gameName: ws.user.gameName,
+                  gameStatus: ws.user.gameStatus,
                   id: ws.user.id,
+                  playingSince: ws.user.playingSince,
                   status: ws.user.status,
                   statusMessage: ws.user.statusMessage,
                   username: ws.user.username

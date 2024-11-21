@@ -18,6 +18,7 @@ module.exports = {
   rules: {
     "array-element-newline": "off",
     "consistent-return": "off",
+    complexity: "30",
     curly: "off",
     "dot-location": "off",
     "func-names": ["error", "as-needed"],
