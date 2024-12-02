@@ -1,7 +1,5 @@
 import axios, { AxiosResponse } from "axios"
 import cryptoRandomString from "crypto-random-string"
-import { ErrorResult, SuccessResult } from "open-graph-scraper/types/lib/types"
-import ogs from "open-graph-scraper"
 
 import Messages from "../models/messages"
 
@@ -28,46 +26,26 @@ export default async function resolveEmbeds(message: Messages) {
               type: "openGraph"
             }
           }
-          await ogs({
-            fetchOptions: {
+          await axios
+            .head(embedLink, {
               headers: {
                 "user-agent": "Googlebot/2.1 (+http://www.google.com/bot.html)"
               }
-            },
-            url: embedLink
-          })
-            .then((result: SuccessResult | ErrorResult) => {
-              if (result?.result) {
+            })
+            .then((res: AxiosResponse) => {
+              // If content type is image
+              if (res.headers["content-type"].startsWith("image/")) {
+                const securityToken = cryptoRandomString({ length: 32 })
                 embed = {
                   embedLink,
-                  openGraph: result.result,
-                  type: "openGraph"
+                  mediaProxyLink: `/api/media-proxy/${message.id}/${i}/${securityToken}`,
+                  securityToken,
+                  type: "image"
                 }
               }
             })
-            .catch(async () => {
-              await axios
-                .get(embedLink, {
-                  headers: {
-                    "user-agent":
-                      "Googlebot/2.1 (+http://www.google.com/bot.html)"
-                  }
-                })
-                .then((res: AxiosResponse) => {
-                  // If content type is image
-                  if (res.headers["content-type"].startsWith("image/")) {
-                    const securityToken = cryptoRandomString({ length: 32 })
-                    embed = {
-                      embedLink,
-                      mediaProxyLink: `/api/media-proxy/${message.id}/${i}/${securityToken}`,
-                      securityToken,
-                      type: "image"
-                    }
-                  }
-                })
-                .catch((e: Error) => {
-                  console.log(e)
-                })
+            .catch((e: Error) => {
+              console.log(e)
             })
           return embed
         })

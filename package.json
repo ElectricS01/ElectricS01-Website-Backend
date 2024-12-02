@@ -21,7 +21,6 @@
     "mariadb": "^3.4.0",
     "mysql2": "^3.11.4",
     "nodemailer": "^6.9.16",
-    "open-graph-scraper": "^6.8.2",
     "reflect-metadata": "^0.2.2",
     "sequelize": "^6.37.5",
     "sequelize-typescript": "^2.1.6",
