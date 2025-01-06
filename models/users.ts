@@ -39,6 +39,14 @@ export default class Users extends Model {
   @Column({
     defaultValue: false
   })
+  otpVerified!: boolean
+
+  @Column
+  otpSecret!: string
+
+  @Column({
+    defaultValue: false
+  })
   admin!: boolean
 
   @Column

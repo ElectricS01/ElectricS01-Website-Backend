@@ -3,6 +3,8 @@ import axios, { AxiosError, AxiosResponse } from "axios"
 import argon2 from "argon2"
 import { rateLimit } from "express-rate-limit"
 import cryptoRandomString from "crypto-random-string"
+import OTPAuth from "otpauth"
+import QRCode from "qrcode"
 
 import { Embed } from "./types/embeds"
 import { RequestUser, RequestUserSession } from "./types/express"
@@ -664,6 +666,13 @@ app.post("/api/login", async (req: Request, res: Response) => {
     res.status(401).json({ message: "Incorrect password" })
     return
   }
+  if (user.otpVerified) {
+    const totp = new OTPAuth.TOTP({ secret: user.otpSecret })
+    if (totp.validate({ token: req.body.token, window: 1 }) === null) {
+      res.status(401).json({ message: "Invalid OTP" })
+      return
+    }
+  }
   const session = await Sessions.create({
     token: cryptoRandomString({ length: 128 }),
     userAgent: req.body.userAgent,
@@ -726,10 +735,138 @@ app.post("/api/reset-password", async (req: Request, res: Response) => {
   }
 })
 
+app.post(
+  "/api/resend-verification",
+  auth,
+  async (req: RequestUser, res: Response) => {
+    const user = await Users.findOne({
+      where: {
+        id: req.user.id
+      }
+    })
+    if (!user) {
+      return res.status(400).json({
+        message: "This user does not exist"
+      })
+    }
+    if (!user.emailToken || user.emailVerified) {
+      return res.status(400).json({
+        message: "Account is already verified"
+      })
+    }
+    await user.update({
+      emailToken: cryptoRandomString({
+        length: 128
+      })
+    })
+    emailLibrary
+      .sendEmail(
+        "support@electrics01.com",
+        user.email,
+        `Hi ${user.username}, Verify your email address`,
+        `Hi ${user.username},\nPlease click the link below to verify your email address:\nhttps://electrics01.com/verify?token=${user.emailToken}\n\nIf you did not request this email, please ignore it.\n\nThanks,\nElectrics01 Support Team`
+      )
+      .catch((e: AxiosError) => {
+        console.log("Error occurred while sending email:", e)
+      })
+    return res.sendStatus(204)
+  }
+)
+
+app.post("/api/verify", auth, async (req: RequestUser, res: Response) => {
+  if (!req.user.emailToken || req.user.emailVerified) {
+    return res.status(400).json({
+      message: "Account is already verified"
+    })
+  }
+  if (req.user.emailToken !== req.body.token) {
+    return res.status(401).json({
+      message: "Token invalid"
+    })
+  }
+  await req.user.update({
+    emailToken: false,
+    emailVerified: true
+  })
+  return res.sendStatus(204)
+})
+
+app.post(
+  "/api/logout",
+  authSession,
+  async (req: RequestUserSession, res: Response) => {
+    await req.session.destroy()
+    res.sendStatus(204)
+  }
+)
+
+app.post("/api/logout-all", auth, async (req: RequestUser, res: Response) => {
+  if (!(await argon2.verify(req.user.password, req.body.password))) {
+    return res.status(400).json({
+      message: "Incorrect password"
+    })
+  }
+  await Sessions.destroy({
+    where: {
+      userId: req.user.id
+    }
+  })
+  return res.sendStatus(204)
+})
+
+app.post("/api/enable-2fa", auth, async (req: RequestUser, res: Response) => {
+  if (req.user.otpVerified) {
+    res.status(400).json({ message: "2FA is already enabled" })
+    return
+  }
+  const secret = new OTPAuth.Secret().toString()
+  await req.user.update({
+    otpSecret: secret
+  })
+  const totp = new OTPAuth.TOTP({
+    algorithm: "SHA256",
+    digits: 6,
+    issuer: "ElectricS01",
+    label: req.user.username,
+    period: 30,
+    secret
+  })
+  const otpUri = totp.toString()
+  const qrCodeDataURL = await QRCode.toDataURL(otpUri)
+
+  res.json({ message: "2FA enabled", otpUri, qrCodeDataURL })
+})
+
+app.post("/api/verify-2fa", auth, (req: RequestUser, res: Response) => {
+  if (req.user.otpVerified || !req.user.otpSecret) {
+    res.status(400).json({ message: "2FA is not enabled" })
+    return
+  }
+  const totp = new OTPAuth.TOTP({ secret: req.user.otpSecret })
+  if (totp.validate({ token: req.body.token, window: 1 }) === null) {
+    res.status(401).json({ message: "Invalid OTP" })
+    return
+  }
+  res.sendStatus(204)
+})
+
+app.post("/api/disable-2fa", auth, async (req: RequestUser, res: Response) => {
+  if (!req.user.otpSecret || !req.user.otpVerified) {
+    res.status(400).json({ message: "2FA is not enabled" })
+    return
+  }
+  const totp = new OTPAuth.TOTP({ secret: req.user.otpSecret })
+  if (totp.validate({ token: req.body.token, window: 1 }) === null) {
+    res.status(401).json({ message: "Invalid OTP" })
+    return
+  }
+  await req.user.update({ otpSecret: null, otpVerified: false })
+  res.sendStatus(204)
+})
+
 app.post("/api/get-user", auth, async (req: RequestUser, res: Response) => {
   if (!parseInt(req.body.userId, 10) && !req.body.username) {
-    res.status(400)
-    res.json({
+    res.status(400).json({
       message: "User requested does not exist"
     })
     return
@@ -1054,62 +1191,6 @@ app.post("/api/history", auth, async (req: RequestUser, res: Response) => {
 })
 
 app.post(
-  "/api/resend-verification",
-  auth,
-  async (req: RequestUser, res: Response) => {
-    const user = await Users.findOne({
-      where: {
-        id: req.user.id
-      }
-    })
-    if (!user) {
-      return res.status(400).json({
-        message: "This user does not exist"
-      })
-    }
-    if (!user.emailToken || user.emailVerified) {
-      return res.status(400).json({
-        message: "Account is already verified"
-      })
-    }
-    await user.update({
-      emailToken: cryptoRandomString({
-        length: 128
-      })
-    })
-    emailLibrary
-      .sendEmail(
-        "support@electrics01.com",
-        user.email,
-        `Hi ${user.username}, Verify your email address`,
-        `Hi ${user.username},\nPlease click the link below to verify your email address:\nhttps://electrics01.com/verify?token=${user.emailToken}\n\nIf you did not request this email, please ignore it.\n\nThanks,\nElectrics01 Support Team`
-      )
-      .catch((e: AxiosError) => {
-        console.log("Error occurred while sending email:", e)
-      })
-    return res.sendStatus(204)
-  }
-)
-
-app.post("/api/verify", auth, async (req: RequestUser, res: Response) => {
-  if (!req.user.emailToken || req.user.emailVerified) {
-    return res.status(400).json({
-      message: "Account is already verified"
-    })
-  }
-  if (req.user.emailToken !== req.body.token) {
-    return res.status(401).json({
-      message: "Token invalid"
-    })
-  }
-  await req.user.update({
-    emailToken: false,
-    emailVerified: true
-  })
-  return res.sendStatus(204)
-})
-
-app.post(
   "/api/direct-message/:userId",
   auth,
   async (req: RequestUser, res: Response) => {
@@ -1220,29 +1301,6 @@ app.post("/api/read-new/:id", auth, async (req: RequestUser, res: Response) => {
   await chat.association.update({
     lastRead: chat.dataValues.messages.length,
     notifications: 0
-  })
-  return res.sendStatus(204)
-})
-
-app.post(
-  "/api/logout",
-  authSession,
-  async (req: RequestUserSession, res: Response) => {
-    await req.session.destroy()
-    res.sendStatus(204)
-  }
-)
-
-app.post("/api/logout-all", auth, async (req: RequestUser, res: Response) => {
-  if (!(await argon2.verify(req.user.password, req.body.password))) {
-    return res.status(400).json({
-      message: "Incorrect password"
-    })
-  }
-  await Sessions.destroy({
-    where: {
-      userId: req.user.id
-    }
   })
   return res.sendStatus(204)
 })
