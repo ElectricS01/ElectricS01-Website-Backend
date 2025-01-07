@@ -317,6 +317,7 @@ app.get("/api/user", auth, async (req: RequestUser, res: Response) => {
       tetris,
       ...req.user.toJSON(),
       emailToken: undefined,
+      otpToken: undefined,
       password: undefined,
       privateKey: undefined,
       updatedAt: undefined
@@ -351,7 +352,7 @@ app.get("/api/admin", auth, async (req: RequestUser, res: Response) => {
   }
   const feedback = await Feedback.findAll()
   const users = await Users.findAll({
-    attributes: { exclude: ["emailToken", "password", "updatedAt"] }
+    attributes: { exclude: ["emailToken", "otpToken", "password", "updatedAt"] }
   })
   return res.json({ feedback, users })
 })
@@ -627,6 +628,7 @@ app.post("/api/register", async (req: Request, res: Response) => {
         token: session.token,
         ...user.toJSON(),
         emailToken: undefined,
+        otpToken: undefined,
         password: undefined,
         privateKey: undefined,
         updatedAt: undefined
@@ -696,6 +698,7 @@ app.post("/api/login", async (req: Request, res: Response) => {
       token: session.token,
       ...user.toJSON(),
       emailToken: undefined,
+      otpToken: undefined,
       password: undefined,
       privateKey: undefined,
       updatedAt: undefined
@@ -892,6 +895,8 @@ app.post("/api/get-user", auth, async (req: RequestUser, res: Response) => {
         "password",
         "emailVerified",
         "emailToken",
+        "otpVerified",
+        "otpToken",
         "admin",
         "saveSwitcher",
         "switcherHistory",
