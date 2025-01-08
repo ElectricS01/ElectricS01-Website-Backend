@@ -317,7 +317,7 @@ app.get("/api/user", auth, async (req: RequestUser, res: Response) => {
       tetris,
       ...req.user.toJSON(),
       emailToken: undefined,
-      otpToken: undefined,
+      otpSecret: undefined,
       password: undefined,
       privateKey: undefined,
       updatedAt: undefined
@@ -352,7 +352,9 @@ app.get("/api/admin", auth, async (req: RequestUser, res: Response) => {
   }
   const feedback = await Feedback.findAll()
   const users = await Users.findAll({
-    attributes: { exclude: ["emailToken", "otpToken", "password", "updatedAt"] }
+    attributes: {
+      exclude: ["emailToken", "otpSecret", "password", "updatedAt"]
+    }
   })
   return res.json({ feedback, users })
 })
@@ -628,7 +630,7 @@ app.post("/api/register", async (req: Request, res: Response) => {
         token: session.token,
         ...user.toJSON(),
         emailToken: undefined,
-        otpToken: undefined,
+        otpSecret: undefined,
         password: undefined,
         privateKey: undefined,
         updatedAt: undefined
@@ -698,7 +700,7 @@ app.post("/api/login", async (req: Request, res: Response) => {
       token: session.token,
       ...user.toJSON(),
       emailToken: undefined,
-      otpToken: undefined,
+      otpSecret: undefined,
       password: undefined,
       privateKey: undefined,
       updatedAt: undefined
@@ -822,9 +824,9 @@ app.post("/api/enable-2fa", auth, async (req: RequestUser, res: Response) => {
     res.status(400).json({ message: "2FA is already enabled" })
     return
   }
-  const secret = new OTPAuth.Secret().toString()
+  const secret = new OTPAuth.Secret()
   await req.user.update({
-    otpSecret: secret
+    otpSecret: secret.base32
   })
   const totp = new OTPAuth.TOTP({
     algorithm: "SHA256",
@@ -837,10 +839,10 @@ app.post("/api/enable-2fa", auth, async (req: RequestUser, res: Response) => {
   const otpUri = totp.toString()
   const qrCodeDataURL = await QRCode.toDataURL(otpUri)
 
-  res.json({ message: "2FA enabled", otpUri, qrCodeDataURL })
+  res.json({ otpUri, qrCodeDataURL })
 })
 
-app.post("/api/verify-2fa", auth, (req: RequestUser, res: Response) => {
+app.post("/api/verify-2fa", auth, async (req: RequestUser, res: Response) => {
   if (req.user.otpVerified || !req.user.otpSecret) {
     res.status(400).json({ message: "2FA is not enabled" })
     return
@@ -850,6 +852,7 @@ app.post("/api/verify-2fa", auth, (req: RequestUser, res: Response) => {
     res.status(401).json({ message: "Invalid OTP" })
     return
   }
+  await req.user.update({ otpVerified: true })
   res.sendStatus(204)
 })
 
@@ -896,7 +899,7 @@ app.post("/api/get-user", auth, async (req: RequestUser, res: Response) => {
         "emailVerified",
         "emailToken",
         "otpVerified",
-        "otpToken",
+        "otpSecret",
         "admin",
         "saveSwitcher",
         "switcherHistory",
