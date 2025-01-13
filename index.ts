@@ -839,7 +839,7 @@ app.post("/api/enable-2fa", auth, async (req: RequestUser, res: Response) => {
   const otpUri = totp.toString()
   const qrCodeDataURL = await QRCode.toDataURL(otpUri)
 
-  res.json({ otpUri, qrCodeDataURL })
+  res.json({ otpUri, qrCodeDataURL, secret: secret.base32 })
 })
 
 app.post("/api/verify-2fa", auth, async (req: RequestUser, res: Response) => {
