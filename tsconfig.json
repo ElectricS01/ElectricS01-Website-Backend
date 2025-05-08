@@ -3,7 +3,7 @@
     "baseUrl": "./",
     "target": "es2021",
     "incremental": true,
-    "types": ["node", "@types/sequelize"],
+    "types": ["node", "@types/sequelize", "@types/multer"],
     "typeRoots": ["./types"],
     "module": "commonjs",
     "moduleResolution": "node",

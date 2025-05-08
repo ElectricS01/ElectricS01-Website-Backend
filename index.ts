@@ -7,9 +7,14 @@ import OTPAuth from "otpauth"
 import QRCode from "qrcode"
 
 import { Embed } from "./types/embeds"
-import { RequestUser, RequestUserSession } from "./types/express"
+import {
+  RequestUser,
+  RequestUserFile,
+  RequestUserSession
+} from "./types/express"
 import { AuthWebSocket } from "types/sockets"
 import { WebSocket, WebSocketServer } from "ws"
+import multer from "multer"
 
 import { NextFunction, Request, Response } from "express"
 
@@ -27,6 +32,7 @@ import Feedback from "./models/feedback"
 import Chats from "./models/chats"
 import ChatAssociations from "./models/chatAssociations"
 import Notifications from "./models/notifications"
+import Uploads from "./models/uploads"
 import * as process from "node:process"
 
 sequelize
@@ -42,6 +48,7 @@ Users.update(
 )
 
 const express = require("express")
+const upload = multer({ dest: "uploads/" })
 const app = express()
 const port = 24555
 
@@ -293,6 +300,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 })
 
 app.use(express.json())
+app.use("/api/i", express.static("uploads"))
 app.use(
   express.urlencoded({
     extended: true
@@ -1312,6 +1320,40 @@ app.post("/api/read-new/:id", auth, async (req: RequestUser, res: Response) => {
   })
   return res.sendStatus(204)
 })
+
+app.post(
+  "/api/upload",
+  auth,
+  upload.single("attachment"),
+  async (req: RequestUserFile, res: Response) => {
+    if (req.user.id !== 1) {
+      return res.status(400).json({
+        message: "You don't have access to images"
+      })
+    }
+
+    if (!req.body) {
+      return res.status(400).json({
+        message: "No files uploaded"
+      })
+    }
+
+    const file = req.file
+
+    console.log(file)
+
+    await Uploads.create({
+      fileName: file.filename,
+      name: file.originalname,
+      size: file.size,
+      userId: req.user.id
+    })
+
+    return res.status(201).json({
+      message: file.filename
+    })
+  }
+)
 
 app.delete(
   "/api/delete/:messageId",

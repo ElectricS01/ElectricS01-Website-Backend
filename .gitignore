@@ -6,3 +6,4 @@ config/main.json
 out
 yarn-error.log
 .env
+uploads
