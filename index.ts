@@ -34,6 +34,7 @@ import ChatAssociations from "./models/chatAssociations"
 import Notifications from "./models/notifications"
 import Uploads from "./models/uploads"
 import * as process from "node:process"
+import path from "node:path"
 
 sequelize
 
@@ -48,7 +49,18 @@ Users.update(
 )
 
 const express = require("express")
-const upload = multer({ dest: "uploads/" })
+
+const storage = multer.diskStorage({
+  destination: "uploads/",
+  filename: (_, file, cb) => {
+    cb(
+      null,
+      cryptoRandomString({ length: 12 }) + path.extname(file.originalname)
+    )
+  }
+})
+const upload = multer({ storage })
+
 const app = express()
 const port = 24555
 
