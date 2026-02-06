@@ -7,3 +7,6 @@ WorkingDirectory=/var/www/html/electrics01-website-backend
 ExecStart=npm run prod
 Restart=always
 RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
