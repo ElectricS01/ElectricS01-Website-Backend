@@ -8,6 +8,7 @@ import {
 } from "sequelize-typescript"
 import Friends from "../models/friends"
 import Scores from "../models/scores"
+import Passkeys from "../models/passkeys"
 
 @Table
 export default class Users extends Model {
@@ -107,4 +108,7 @@ export default class Users extends Model {
 
   @HasMany(() => Scores, "userId")
   tetris!: Scores[]
+
+  @HasMany(() => Passkeys, "userId")
+  passkeys!: Passkeys[]
 }

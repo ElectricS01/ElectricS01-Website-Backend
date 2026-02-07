@@ -7,6 +7,13 @@ import OTPAuth from "otpauth"
 import QRCode from "qrcode"
 import { WebSocket, WebSocketServer } from "ws"
 import multer from "multer"
+import {
+  generateRegistrationOptions,
+  verifyRegistrationResponse,
+  generateAuthenticationOptions,
+  verifyAuthenticationResponse
+} from "@simplewebauthn/server"
+import { isoUint8Array } from "@simplewebauthn/server/helpers"
 
 import { Embed } from "./types/embeds"
 import {
@@ -15,6 +22,7 @@ import {
   RequestUserSession
 } from "./types/express"
 import { AuthWebSocket } from "types/sockets"
+import { Challenge } from "types/challange"
 
 import { NextFunction, Request, Response } from "express"
 
@@ -34,6 +42,8 @@ import Chats from "./models/chats"
 import ChatAssociations from "./models/chatAssociations"
 import Notifications from "./models/notifications"
 import Uploads from "./models/uploads"
+import Passkeys from "./models/passkeys"
+
 import * as process from "node:process"
 import path from "node:path"
 
@@ -67,6 +77,13 @@ const port = 24555
 
 const wss = new WebSocketServer({ port: port - 1 })
 
+const challenges: Challenge[] = []
+const rpName = "ElectricS01"
+const rpID = process.env.TS_NODE_DEV ? "localhost" : "electrics01.com"
+const origin = process.env.TS_NODE_DEV
+  ? "http://localhost:8080"
+  : "https://electrics01.com"
+
 const emailLibrary = new nodemailerLibrary()
 const postLimiter = rateLimit({
   legacyHeaders: false,
@@ -88,7 +105,14 @@ const limiter = rateLimit({
   windowMs: 5000
 })
 
+const FIVE_MINUTES = 5 * 60 * 1000
 
+setInterval(() => {
+  const cutoff = Date.now() - FIVE_MINUTES
+  const kept = challenges.filter((c) => c.timestamp >= cutoff)
+
+  challenges.splice(0, challenges.length, ...kept)
+}, FIVE_MINUTES)
 
 const checkImage = async function (url: string) {
   try {
@@ -211,6 +235,32 @@ app.get("/api/chat/:chatId", auth, async (req: RequestUser, res: Response) => {
   })
 })
 
+app.get("/api/chats", auth, (req: RequestUser, res: Response) => {
+  getChats(req.user.id).then((chats) => {
+    res.json(chats)
+  })
+})
+
+app.get("/api/passkey-challenge", async (req: Request, res: Response) => {
+  const options = await generateAuthenticationOptions({
+    rpID,
+    userVerification: "preferred"
+  })
+
+  const challengeId = cryptoRandomString({ length: 16 })
+  challenges.push({
+    challenge: options.challenge,
+    id: parseInt(challengeId, 36),
+    timestamp: Date.now(),
+    userId: 0
+  })
+
+  res.json({
+    challengeId,
+    options
+  })
+})
+
 app.get("/api/admin", auth, async (req: RequestUser, res: Response) => {
   if (!req.user.admin) {
     return res.status(403).json({
@@ -234,6 +284,21 @@ app.get("/api/sessions", auth, async (req: RequestUser, res: Response) => {
     }
   })
   res.json(sessions)
+})
+
+app.get("/api/passkeys", auth, async (req: RequestUser, res: Response) => {
+  const passkeys = await Passkeys.findAll({
+    attributes: [
+      "id",
+      "name",
+      "credentialDeviceType",
+      "credentialBackedUp",
+      "createdAt"
+    ],
+    where: { userId: req.user.id }
+  })
+
+  res.json(passkeys)
 })
 
 app.get("/api/friends", auth, async (req: RequestUser, res: Response) => {
@@ -263,13 +328,13 @@ app.get("/api/friends", auth, async (req: RequestUser, res: Response) => {
 app.post("/api/message", auth, async (req: RequestUser, res: Response) => {
   try {
     const messageText = req.body.messageContents?.trim()
-    if (!messageText || messageText < 1) {
+    if (!messageText || messageText.length < 1) {
       res.status(400).json({
         message: "Message has no content"
       })
       return
     }
-    if (messageText > 10000) {
+    if (messageText.length > 10000) {
       res.status(400).json({
         message: "Message too long"
       })
@@ -476,7 +541,7 @@ app.post("/api/register", async (req: Request, res: Response) => {
       })
     const session = await Sessions.create({
       token: cryptoRandomString({ length: 128 }),
-      userAgent: req.body.userAgent,
+      userAgent: req.body.userAgent || req.headers["user-agent"] || "Unknown",
       userId: user.id
     })
     const notifications = await Notifications.findAll({
@@ -549,7 +614,7 @@ app.post("/api/login", async (req: Request, res: Response) => {
   }
   const session = await Sessions.create({
     token: cryptoRandomString({ length: 128 }),
-    userAgent: req.body.userAgent,
+    userAgent: req.body.userAgent || req.headers["user-agent"] || "Unknown",
     userId: user.id
   })
   const notifications = await Notifications.findAll({
@@ -676,16 +741,24 @@ app.post(
 )
 
 app.post("/api/logout-all", auth, async (req: RequestUser, res: Response) => {
+  if (!req.body.password) {
+    return res.status(400).json({
+      message: "Password is required"
+    })
+  }
+
   if (!(await argon2.verify(req.user.password, req.body.password))) {
     return res.status(400).json({
       message: "Incorrect password"
     })
   }
+
   await Sessions.destroy({
     where: {
       userId: req.user.id
     }
   })
+
   return res.sendStatus(204)
 })
 
@@ -744,6 +817,245 @@ app.post("/api/disable-2fa", auth, async (req: RequestUser, res: Response) => {
   }
   await req.user.update({ otpSecret: null, otpVerified: false })
   res.sendStatus(204)
+})
+
+app.post("/api/add-passkey", auth, async (req: RequestUser, res: Response) => {
+  const userPasskeys = await Passkeys.findAll({
+    where: { userId: req.user.id }
+  })
+
+  const options = await generateRegistrationOptions({
+    attestationType: "none",
+    authenticatorSelection: {
+      residentKey: "required",
+      userVerification: "preferred"
+    },
+    excludeCredentials: userPasskeys.map((passkey) => ({
+      id: passkey.credentialID,
+      transports: passkey.transports
+        ? JSON.parse(passkey.transports)
+        : undefined,
+      type: "public-key"
+    })),
+    rpID,
+    rpName,
+    userID: isoUint8Array.fromUTF8String(req.user.id),
+    userName: req.user.username
+  })
+
+  const challengeId = cryptoRandomString({ length: 16 })
+
+  challenges.push({
+    challenge: options.challenge,
+    id: parseInt(challengeId, 36),
+    timestamp: Date.now(),
+    userId: req.user.id
+  })
+
+  res.json({
+    challengeId,
+    options
+  })
+})
+
+app.post(
+  "/api/confirm-passkey",
+  auth,
+  async (req: RequestUser, res: Response) => {
+    const passkeyName = req.body.passkeyName?.trim()
+
+    if (!passkeyName) {
+      res.status(400).json({
+        message: "Passkey name is missing"
+      })
+      return
+    }
+
+    if (passkeyName.length > 50) {
+      res.status(400).json({
+        message: "Passkey name too long"
+      })
+      return
+    }
+
+    if (!req.body.challengeId) {
+      res.status(400).json({
+        message: "Challenge ID missing"
+      })
+      return
+    }
+
+    const challengeIndex = challenges.findIndex(
+      (c) =>
+        c.id === parseInt(req.body.challengeId, 36) && c.userId === req.user.id
+    )
+
+    if (challengeIndex === -1) {
+      res.status(400).json({
+        message: "Challenge not found or expired"
+      })
+      return
+    }
+
+    const challengeData = challenges[challengeIndex]
+
+    if (Date.now() - challengeData.timestamp > FIVE_MINUTES) {
+      challenges.splice(challengeIndex, 1)
+      res.status(400).json({
+        message: "Challenge expired"
+      })
+      return
+    }
+
+    /* eslint-disable-next-line init-declarations */
+    let verification
+    try {
+      verification = await verifyRegistrationResponse({
+        expectedChallenge: challengeData.challenge,
+        expectedOrigin: origin,
+        expectedRPID: rpID,
+        response: req.body
+      })
+    } catch (error) {
+      console.error("Verification error:", error)
+      res.status(400).json({
+        error: error instanceof Error ? error.message : String(error),
+        message: "Verification failed"
+      })
+      return
+    }
+
+    if (!verification.verified || !verification.registrationInfo) {
+      res.status(400).json({ message: "Verification failed" })
+      return
+    }
+
+    await Passkeys.create({
+      counter: verification.registrationInfo.credential.counter,
+      credentialBackedUp: verification.registrationInfo.credentialBackedUp,
+      credentialDeviceType: verification.registrationInfo.credentialDeviceType,
+      credentialID: verification.registrationInfo.credential.id,
+      credentialPublicKey: Buffer.from(
+        verification.registrationInfo.credential.publicKey
+      ).toString("base64url"),
+      name: passkeyName,
+      transports: req.body.response.transports
+        ? JSON.stringify(req.body.response.transports)
+        : null,
+      userId: req.user.id
+    })
+
+    challenges.splice(challengeIndex, 1)
+
+    res.sendStatus(204)
+  }
+)
+
+app.post("/api/passkey-login-verify", async (req: Request, res: Response) => {
+  if (!req.body.challengeId) {
+    res.status(400).json({ message: "Challenge ID missing" })
+    return
+  }
+
+  const challengeIndex = challenges.findIndex(
+    (c) => c.id === parseInt(req.body.challengeId, 36)
+  )
+
+  if (challengeIndex === -1) {
+    res.status(400).json({
+      message: "Challenge not found or expired"
+    })
+    return
+  }
+
+  const challengeData = challenges[challengeIndex]
+
+  if (Date.now() - challengeData.timestamp > FIVE_MINUTES) {
+    challenges.splice(challengeIndex, 1)
+    res.status(400).json({
+      message: "Challenge expired"
+    })
+    return
+  }
+
+  const passkey = await Passkeys.findOne({
+    include: [Users],
+    where: {
+      credentialID: req.body.id
+    }
+  })
+
+  if (!passkey) {
+    res.status(400).json({ message: "Passkey not found" })
+    return
+  }
+
+  /* eslint-disable-next-line init-declarations */
+  let verification
+  try {
+    verification = await verifyAuthenticationResponse({
+      credential: {
+        counter: Number(passkey.counter),
+        id: passkey.credentialID,
+        publicKey: Buffer.from(passkey.credentialPublicKey, "base64url"),
+        transports: passkey.transports
+          ? JSON.parse(passkey.transports)
+          : undefined
+      },
+      expectedChallenge: challengeData.challenge,
+      expectedOrigin: origin,
+      expectedRPID: rpID,
+      response: req.body
+    })
+  } catch (error) {
+    console.error("Verification error:", error)
+    res.status(400).json({
+      error: error instanceof Error ? error.message : String(error),
+      message: "Verification failed"
+    })
+    return
+  }
+
+  if (!verification.verified) {
+    res.status(400).json({ message: "Verification failed" })
+    return
+  }
+
+  await passkey.update({
+    counter: verification.authenticationInfo.newCounter
+  })
+
+  challenges.splice(challengeIndex, 1)
+
+  const session = await Sessions.create({
+    token: cryptoRandomString({ length: 128 }),
+    userAgent: req.body.userAgent || req.headers["user-agent"] || "Unknown",
+    userId: passkey.user.id
+  })
+
+  const notifications = await Notifications.findAll({
+    where: { userId: passkey.user.id }
+  })
+
+  const tetris = await Scores.findAll({
+    where: { userId: passkey.user.id }
+  })
+
+  const chatsList = await getChats(passkey.user.id)
+
+  res.json({
+    chatsList,
+    notifications,
+    tetris,
+    verified: true,
+    ...passkey.user.toJSON(),
+    emailToken: undefined,
+    otpSecret: undefined,
+    password: undefined,
+    privateKey: undefined,
+    token: session.token,
+    updatedAt: undefined
+  })
 })
 
 app.post("/api/get-user", auth, async (req: RequestUser, res: Response) => {
@@ -1200,7 +1512,7 @@ app.post(
       })
     }
 
-    if (!req.body) {
+    if (!req.file) {
       return res.status(400).json({
         message: "No files uploaded"
       })
@@ -1216,6 +1528,42 @@ app.post(
     return res.status(201).json({
       message: req.file.filename
     })
+  }
+)
+
+app.post(
+  "/api/delete-passkey/:id",
+  auth,
+  async (req: RequestUser, res: Response) => {
+    if (!req.body?.password) {
+      res.status(400).json({
+        message: "Password is required"
+      })
+      return
+    }
+
+    if (!(await argon2.verify(req.user.password, req.body.password))) {
+      res.status(400).json({
+        message: "Incorrect password"
+      })
+      return
+    }
+
+    const passkey = await Passkeys.findOne({
+      where: {
+        id: req.params.id,
+        userId: req.user.id
+      }
+    })
+
+    if (!passkey) {
+      res.status(401).json({ message: "Passkey not found" })
+      return
+    }
+
+    await passkey.destroy()
+
+    res.sendStatus(204)
   }
 )
 
@@ -1378,6 +1726,40 @@ app.delete(
     }
     await session.destroy()
     return res.json({ message: "Session has been deleted" })
+  }
+)
+
+app.patch(
+  "/api/edit-passkey/:id",
+  auth,
+  async (req: RequestUser, res: Response) => {
+    const passkeyName = req.body.passkeyName?.trim()
+
+    if (!passkeyName) {
+      res.status(400).json({ message: "Passkey name is missing" })
+      return
+    }
+
+    if (passkeyName.length > 50) {
+      res.status(400).json({ message: "Passkey name too long" })
+      return
+    }
+
+    const passkey = await Passkeys.findOne({
+      where: {
+        id: req.params.id,
+        userId: req.user.id
+      }
+    })
+
+    if (!passkey) {
+      res.status(401).json({ message: "Passkey not found" })
+      return
+    }
+
+    await passkey.update({ name: passkeyName })
+
+    res.json(passkeyName)
   }
 )
 
