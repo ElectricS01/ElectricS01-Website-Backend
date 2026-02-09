@@ -1,5 +1,5 @@
 export interface Challenge {
-  id: number
+  id: string
   userId: number
   challenge: string
   timestamp: number

@@ -250,7 +250,7 @@ app.get("/api/passkey-challenge", async (req: Request, res: Response) => {
   const challengeId = cryptoRandomString({ length: 16 })
   challenges.push({
     challenge: options.challenge,
-    id: parseInt(challengeId, 36),
+    id: challengeId,
     timestamp: Date.now(),
     userId: 0
   })
@@ -847,7 +847,7 @@ app.post("/api/add-passkey", auth, async (req: RequestUser, res: Response) => {
 
   challenges.push({
     challenge: options.challenge,
-    id: parseInt(challengeId, 36),
+    id: challengeId,
     timestamp: Date.now(),
     userId: req.user.id
   })
@@ -886,8 +886,7 @@ app.post(
     }
 
     const challengeIndex = challenges.findIndex(
-      (c) =>
-        c.id === parseInt(req.body.challengeId, 36) && c.userId === req.user.id
+      (c) => c.id === req.body.challengeId && c.userId === req.user.id
     )
 
     if (challengeIndex === -1) {
@@ -951,14 +950,14 @@ app.post(
   }
 )
 
-app.post("/api/passkey-login-verify", async (req: Request, res: Response) => {
+app.post("/api/verify-passkey", async (req: Request, res: Response) => {
   if (!req.body.challengeId) {
     res.status(400).json({ message: "Challenge ID missing" })
     return
   }
 
   const challengeIndex = challenges.findIndex(
-    (c) => c.id === parseInt(req.body.challengeId, 36)
+    (c) => c.id === req.body.challengeId
   )
 
   if (challengeIndex === -1) {
