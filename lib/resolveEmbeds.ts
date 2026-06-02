@@ -14,7 +14,7 @@ export const checkImage = async function (url: string) {
       maxRedirects: 3,
       timeout: 5000
     })
-    const contentType = String(res.headers["content-type"] ?? "")
+    const contentType = String(res.headers["content-type"])
     return contentType.startsWith("image/")
   } catch (e) {
     console.error(e)

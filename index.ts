@@ -150,7 +150,10 @@ app.get(
           responseType: "arraybuffer"
         })
         .then((response: AxiosResponse) => {
-          res.setHeader("content-type", response.headers["content-type"])
+          res.setHeader(
+            "content-type",
+            String(response.headers["content-type"])
+          )
           res.setHeader("cache-control", "public, max-age=604800")
           res.end(response.data, "binary")
         })
