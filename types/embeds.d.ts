@@ -1,4 +1,6 @@
 export interface Embed {
   embedLink: string
-  securityToken: string
+  mediaProxyLink?: string
+  securityToken?: string
+  type: "image"
 }

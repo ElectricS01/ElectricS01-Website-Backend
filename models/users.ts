@@ -1,8 +1,8 @@
 import {
   Column,
   DataType,
-  HasOne,
   HasMany,
+  HasOne,
   Model,
   Table
 } from "sequelize-typescript"

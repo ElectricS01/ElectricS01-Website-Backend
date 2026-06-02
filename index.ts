@@ -28,7 +28,7 @@ import { NextFunction, Request, Response } from "express"
 
 import auth from "./lib/auth"
 import authSession from "./lib/authSession"
-import resolveEmbeds from "./lib/resolveEmbeds"
+import resolveEmbeds, { checkImage } from "./lib/resolveEmbeds"
 import nodemailerLibrary from "./lib/mailer"
 import { getChat, getChats } from "./lib/chat"
 
@@ -113,17 +113,6 @@ setInterval(() => {
 
   challenges.splice(0, challenges.length, ...kept)
 }, FIVE_MINUTES)
-
-const checkImage = async function (url: string) {
-  try {
-    const response = await axios.head(url)
-    const contentType = response.headers["content-type"]
-    return contentType.startsWith("image/")
-  } catch (e) {
-    console.error("Error occurred:", e)
-    return false
-  }
-}
 
 app.get(
   [

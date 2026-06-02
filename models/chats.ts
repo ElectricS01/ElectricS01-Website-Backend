@@ -3,8 +3,8 @@ import {
   Column,
   DataType,
   ForeignKey,
-  HasOne,
   HasMany,
+  HasOne,
   Model,
   Table
 } from "sequelize-typescript"
