@@ -9,11 +9,11 @@ import { WebSocket, WebSocketServer } from "ws"
 import multer from "multer"
 import {
   generateRegistrationOptions,
-  verifyRegistrationResponse,
-  generateAuthenticationOptions,
-  verifyAuthenticationResponse
+  verifyRegistrationResponse
 } from "@simplewebauthn/server"
 import { isoUint8Array } from "@simplewebauthn/server/helpers"
+import emojiRegex from "emoji-regex"
+import { UniqueConstraintError } from "sequelize"
 
 import { Embed } from "./types/embeds"
 import {
@@ -29,8 +29,10 @@ import { NextFunction, Request, Response } from "express"
 import auth from "./lib/auth"
 import authSession from "./lib/authSession"
 import resolveEmbeds, { checkImage } from "./lib/resolveEmbeds"
-import nodemailerLibrary from "./lib/mailer"
+import NodemailerLibrary from "./lib/mailer"
 import { getChat, getChats } from "./lib/chat"
+
+import authRoutes from "./routes/auth"
 
 import Messages from "./models/messages"
 import Scores from "./models/scores"
@@ -43,6 +45,7 @@ import ChatAssociations from "./models/chatAssociations"
 import Notifications from "./models/notifications"
 import Uploads from "./models/uploads"
 import Passkeys from "./models/passkeys"
+import Reactions from "./models/reactions"
 
 import * as process from "node:process"
 import path from "node:path"
@@ -77,14 +80,14 @@ const port = 24555
 
 const wss = new WebSocketServer({ port: port - 1 })
 
-const challenges: Challenge[] = []
+export const challenges: Challenge[] = []
 const rpName = "ElectricS01"
-const rpID = process.env.TS_NODE_DEV ? "localhost" : "electrics01.com"
-const origin = process.env.TS_NODE_DEV
+export const rpID = process.env.TS_NODE_DEV ? "localhost" : "electrics01.com"
+export const origin = process.env.TS_NODE_DEV
   ? "http://localhost:8080"
   : "https://electrics01.com"
 
-const emailLibrary = new nodemailerLibrary()
+const emailLibrary = new NodemailerLibrary()
 const postLimiter = rateLimit({
   legacyHeaders: false,
   limit: 5,
@@ -105,7 +108,7 @@ const limiter = rateLimit({
   windowMs: 5000
 })
 
-const FIVE_MINUTES = 5 * 60 * 1000
+export const FIVE_MINUTES = 5 * 60 * 1000
 
 setInterval(() => {
   const cutoff = Date.now() - FIVE_MINUTES
@@ -181,8 +184,20 @@ app.use(
     extended: true
   })
 )
+app.use("/api", authRoutes)
 
-app.get("/api/user", auth, async (req: RequestUser, res: Response) => {
+app.post(
+  "/api/logout",
+  authSession,
+  async (req: RequestUserSession, res: Response) => {
+    await req.session.destroy()
+    res.sendStatus(204)
+  }
+)
+
+app.use(auth)
+
+app.get("/api/user", async (req: RequestUser, res: Response) => {
   const notifications = await Notifications.findAll({
     where: {
       userId: req.user.id
@@ -208,7 +223,7 @@ app.get("/api/user", auth, async (req: RequestUser, res: Response) => {
   })
 })
 
-app.get("/api/chat/:chatId", auth, async (req: RequestUser, res: Response) => {
+app.get("/api/chat/:chatId", async (req: RequestUser, res: Response) => {
   await getChat(req.params.chatId, req.user.id).then(async (chat) => {
     const association = await ChatAssociations.findOne({
       where: {
@@ -227,33 +242,13 @@ app.get("/api/chat/:chatId", auth, async (req: RequestUser, res: Response) => {
   })
 })
 
-app.get("/api/chats", auth, (req: RequestUser, res: Response) => {
+app.get("/api/chats", (req: RequestUser, res: Response) => {
   getChats(req.user.id).then((chats) => {
     res.json(chats)
   })
 })
 
-app.get("/api/passkey-challenge", async (req: Request, res: Response) => {
-  const options = await generateAuthenticationOptions({
-    rpID,
-    userVerification: "preferred"
-  })
-
-  const challengeId = cryptoRandomString({ length: 16 })
-  challenges.push({
-    challenge: options.challenge,
-    id: challengeId,
-    timestamp: Date.now(),
-    userId: 0
-  })
-
-  res.json({
-    challengeId,
-    options
-  })
-})
-
-app.get("/api/admin", auth, async (req: RequestUser, res: Response) => {
+app.get("/api/admin", async (req: RequestUser, res: Response) => {
   if (!req.user.admin) {
     return res.status(403).json({
       message: "Forbidden"
@@ -268,7 +263,7 @@ app.get("/api/admin", auth, async (req: RequestUser, res: Response) => {
   return res.json({ feedback, users })
 })
 
-app.get("/api/sessions", auth, async (req: RequestUser, res: Response) => {
+app.get("/api/sessions", async (req: RequestUser, res: Response) => {
   const sessions = await Sessions.findAll({
     attributes: { exclude: ["token", "userId", "updatedAt"] },
     where: {
@@ -278,7 +273,7 @@ app.get("/api/sessions", auth, async (req: RequestUser, res: Response) => {
   res.json(sessions)
 })
 
-app.get("/api/passkeys", auth, async (req: RequestUser, res: Response) => {
+app.get("/api/passkeys", async (req: RequestUser, res: Response) => {
   const passkeys = await Passkeys.findAll({
     attributes: [
       "id",
@@ -293,7 +288,7 @@ app.get("/api/passkeys", auth, async (req: RequestUser, res: Response) => {
   res.json(passkeys)
 })
 
-app.get("/api/friends", auth, async (req: RequestUser, res: Response) => {
+app.get("/api/friends", async (req: RequestUser, res: Response) => {
   const friends = await Friends.findAll({
     include: [
       {
@@ -317,7 +312,7 @@ app.get("/api/friends", auth, async (req: RequestUser, res: Response) => {
   res.json(friends)
 })
 
-app.post("/api/message", auth, async (req: RequestUser, res: Response) => {
+app.post("/api/message", async (req: RequestUser, res: Response) => {
   try {
     const messageText = req.body.messageContents?.trim()
     if (!messageText || messageText.length < 1) {
@@ -414,7 +409,177 @@ app.post("/api/message", auth, async (req: RequestUser, res: Response) => {
   }
 })
 
-app.post("/api/create-chat", auth, async (req: RequestUser, res: Response) => {
+app.post("/api/react", async (req: RequestUser, res: Response) => {
+  const { messageId, emoji } = req.body
+
+  if (!messageId || !emoji) {
+    res.status(400).json({
+      message: "Missing required fields"
+    })
+    return
+  }
+
+  const message = await Messages.findOne({
+    where: {
+      id: messageId
+    }
+  })
+
+  if (!message) {
+    res.status(400).json({ message: "Invalid message" })
+    return
+  }
+
+  const chat = await Chats.findOne({
+    include: [
+      {
+        as: "association",
+        model: ChatAssociations,
+        required: false,
+        where: {
+          userId: req.user.id
+        }
+      }
+    ],
+    where: {
+      id: message.chatId
+    }
+  })
+
+  if (!chat || (chat.type !== 2 && !chat.association)) {
+    res.status(403).json({ message: "Forbidden" })
+    return
+  }
+
+  if (chat.requireVerification && !req.user.emailVerified) {
+    res.status(400).json({
+      message: "User not verified"
+    })
+    return
+  }
+
+  if (typeof emoji !== "string") {
+    res.status(400).json({ message: "Invalid emoji" })
+    return
+  }
+
+  const cleanEmoji = emoji.trim()
+  const matches = cleanEmoji.match(emojiRegex())
+
+  if (!matches || matches.length !== 1 || matches[0] !== cleanEmoji) {
+    res.status(400).json({ message: "Invalid emoji" })
+    return
+  }
+
+  const existing = await Reactions.findOne({
+    where: {
+      emoji: cleanEmoji,
+      messageId,
+      userId: req.user.id
+    }
+  })
+
+  if (existing) {
+    res.sendStatus(204)
+    return
+  }
+
+  try {
+    await Reactions.create({
+      emoji: cleanEmoji,
+      messageId,
+      userId: req.user.id
+    })
+  } catch (error) {
+    if (!(error instanceof UniqueConstraintError)) {
+      throw error
+    }
+  }
+
+  return res.sendStatus(204)
+})
+
+app.delete("/api/react", async (req: RequestUser, res: Response) => {
+  const { messageId, emoji } = req.body
+
+  if (!messageId || !emoji) {
+    res.status(400).json({
+      message: "Missing required fields"
+    })
+    return
+  }
+
+  const message = await Messages.findOne({
+    where: {
+      id: messageId
+    }
+  })
+
+  if (!message) {
+    res.status(400).json({ message: "Invalid message" })
+    return
+  }
+
+  const chat = await Chats.findOne({
+    include: [
+      {
+        as: "association",
+        model: ChatAssociations,
+        required: false,
+        where: {
+          userId: req.user.id
+        }
+      }
+    ],
+    where: {
+      id: message.chatId
+    }
+  })
+
+  if (!chat || (chat.type !== 2 && !chat.association)) {
+    res.status(403).json({ message: "Forbidden" })
+    return
+  }
+
+  if (chat.requireVerification && !req.user.emailVerified) {
+    res.status(400).json({
+      message: "User not verified"
+    })
+    return
+  }
+
+  if (typeof emoji !== "string") {
+    res.status(400).json({ message: "Invalid emoji" })
+    return
+  }
+
+  const cleanEmoji = emoji.trim()
+  const matches = cleanEmoji.match(emojiRegex())
+
+  if (!matches || matches.length !== 1 || matches[0] !== cleanEmoji) {
+    res.status(400).json({ message: "Invalid emoji" })
+    return
+  }
+
+  const existing = await Reactions.findOne({
+    where: {
+      emoji: cleanEmoji,
+      messageId,
+      userId: req.user.id
+    }
+  })
+
+  if (!existing) {
+    res.sendStatus(204)
+    return
+  }
+
+  await existing.destroy()
+
+  return res.sendStatus(204)
+})
+
+app.post("/api/create-chat", async (req: RequestUser, res: Response) => {
   if (!req.body.name) {
     res.status(400).json({
       message: "Chat name not specified"
@@ -471,205 +636,8 @@ app.post("/api/create-chat", auth, async (req: RequestUser, res: Response) => {
   })
 })
 
-app.post("/api/register", async (req: Request, res: Response) => {
-  try {
-    if (
-      !req.body.username ||
-      !req.body.password ||
-      !req.body.email ||
-      req.body.username.length < 1 ||
-      req.body.password.length < 1 ||
-      req.body.email.length < 1
-    ) {
-      res.status(400).json({
-        message: "Form not complete"
-      })
-      return
-    }
-    if (
-      await Users.findOne({
-        where: {
-          username: req.body.username
-        }
-      })
-    ) {
-      res.status(400).json({
-        message: "Username is taken"
-      })
-      return
-    }
-    if (
-      await Users.findOne({
-        where: {
-          email: req.body.email
-        }
-      })
-    ) {
-      res.status(400).json({
-        message: "Email is taken"
-      })
-      return
-    }
-    const user = await Users.create({
-      email: req.body.email,
-      emailToken: cryptoRandomString({
-        length: 128
-      }),
-      password: await argon2.hash(req.body.password),
-      privateKey: req.body.privateKey,
-      publicKey: req.body.publicKey,
-      savePrivateKey: req.body.savePrivateKey,
-      username: req.body.username
-    })
-    emailLibrary
-      .sendEmail(
-        "support@electrics01.com",
-        req.body.email,
-        `Hi ${user.username}, Verify your email address`,
-        `Hi ${user.username},\nPlease click the link below to verify your email address:\nhttps://electrics01.com/verify?token=${user.emailToken}\n\nIf you did not request this email, please ignore it.\n\nThanks,\nElectrics01 Support Team`
-      )
-      .catch((e: AxiosError) => {
-        console.log("Error occurred while sending email:", e)
-      })
-    const session = await Sessions.create({
-      token: cryptoRandomString({ length: 128 }),
-      userAgent: req.body.userAgent || req.headers["user-agent"] || "Unknown",
-      userId: user.id
-    })
-    const notifications = await Notifications.findAll({
-      where: {
-        userId: user.id
-      }
-    })
-    const tetris = await Scores.findAll({
-      where: {
-        userId: user.id
-      }
-    })
-    getChats(user.id).then((chatsList) => {
-      res.json({
-        chatsList,
-        notifications,
-        tetris,
-        token: session.token,
-        ...user.toJSON(),
-        emailToken: undefined,
-        otpSecret: undefined,
-        password: undefined,
-        privateKey: undefined,
-        updatedAt: undefined
-      })
-    })
-  } catch (e) {
-    console.log(e)
-    res.status(500).json({
-      message: "Something went wrong"
-    })
-  }
-})
-
-app.post("/api/login", async (req: Request, res: Response) => {
-  if (
-    !req.body.username ||
-    !req.body.password ||
-    req.body.username.length < 1 ||
-    req.body.password.length < 1
-  ) {
-    res.status(400)
-    res.json({
-      message: "Form not complete"
-    })
-    return
-  }
-  const user = await Users.findOne({
-    where: {
-      username: req.body.username
-    }
-  })
-  if (!user) {
-    res.status(401).json({ message: "User not found" })
-    return
-  }
-  if (!(await argon2.verify(user.password, req.body.password))) {
-    res.status(401).json({ message: "Incorrect password" })
-    return
-  }
-  if (user.otpVerified) {
-    const totp = new OTPAuth.TOTP({
-      algorithm: "SHA256",
-      secret: user.otpSecret
-    })
-    if (totp.validate({ token: req.body.token, window: 1 }) === null) {
-      res.status(401).json({ message: "2FA code is invalid" })
-      return
-    }
-  }
-  const session = await Sessions.create({
-    token: cryptoRandomString({ length: 128 }),
-    userAgent: req.body.userAgent || req.headers["user-agent"] || "Unknown",
-    userId: user.id
-  })
-  const notifications = await Notifications.findAll({
-    where: {
-      userId: user.id
-    }
-  })
-  const tetris = await Scores.findAll({
-    where: {
-      userId: user.id
-    }
-  })
-  getChats(user.id).then((chatsList) => {
-    res.json({
-      chatsList,
-      notifications,
-      tetris,
-      token: session.token,
-      ...user.toJSON(),
-      emailToken: undefined,
-      otpSecret: undefined,
-      password: undefined,
-      privateKey: undefined,
-      updatedAt: undefined
-    })
-  })
-})
-
-app.post("/api/reset-password", async (req: Request, res: Response) => {
-  try {
-    if (!req.body.email || req.body.email.length < 1) {
-      res.status(500).json({
-        message: "Form not complete"
-      })
-      return
-    }
-    const user = await Users.findOne({
-      where: {
-        email: req.body.email
-      }
-    })
-    if (!user) {
-      res.status(401).json({
-        message: "Email does not exist"
-      })
-      return
-    }
-    res.status(500).json({
-      message: "This feature is unavailable right now"
-    })
-    return
-  } catch (e) {
-    console.log(e)
-    res.status(500).json({
-      message: "Something went wrong"
-    })
-    return
-  }
-})
-
 app.post(
   "/api/resend-verification",
-  auth,
   async (req: RequestUser, res: Response) => {
     const user = await Users.findOne({
       where: {
@@ -705,7 +673,7 @@ app.post(
   }
 )
 
-app.post("/api/verify", auth, async (req: RequestUser, res: Response) => {
+app.post("/api/verify", async (req: RequestUser, res: Response) => {
   if (!req.user.emailToken || req.user.emailVerified) {
     return res.status(400).json({
       message: "Account is already verified"
@@ -723,16 +691,7 @@ app.post("/api/verify", auth, async (req: RequestUser, res: Response) => {
   return res.sendStatus(204)
 })
 
-app.post(
-  "/api/logout",
-  authSession,
-  async (req: RequestUserSession, res: Response) => {
-    await req.session.destroy()
-    res.sendStatus(204)
-  }
-)
-
-app.post("/api/logout-all", auth, async (req: RequestUser, res: Response) => {
+app.post("/api/logout-all", async (req: RequestUser, res: Response) => {
   if (!req.body.password) {
     return res.status(400).json({
       message: "Password is required"
@@ -754,7 +713,7 @@ app.post("/api/logout-all", auth, async (req: RequestUser, res: Response) => {
   return res.sendStatus(204)
 })
 
-app.post("/api/enable-2fa", auth, async (req: RequestUser, res: Response) => {
+app.post("/api/enable-2fa", async (req: RequestUser, res: Response) => {
   if (req.user.otpVerified) {
     res.status(400).json({ message: "2FA is already enabled" })
     return
@@ -777,7 +736,7 @@ app.post("/api/enable-2fa", auth, async (req: RequestUser, res: Response) => {
   res.json({ otpUri, qrCodeDataURL, secret: secret.base32 })
 })
 
-app.post("/api/verify-2fa", auth, async (req: RequestUser, res: Response) => {
+app.post("/api/verify-2fa", async (req: RequestUser, res: Response) => {
   if (req.user.otpVerified || !req.user.otpSecret) {
     res.status(400).json({ message: "2FA is not enabled" })
     return
@@ -794,7 +753,7 @@ app.post("/api/verify-2fa", auth, async (req: RequestUser, res: Response) => {
   res.sendStatus(204)
 })
 
-app.post("/api/disable-2fa", auth, async (req: RequestUser, res: Response) => {
+app.post("/api/disable-2fa", async (req: RequestUser, res: Response) => {
   if (!req.user.otpSecret || !req.user.otpVerified) {
     res.status(400).json({ message: "2FA is not enabled" })
     return
@@ -811,7 +770,7 @@ app.post("/api/disable-2fa", auth, async (req: RequestUser, res: Response) => {
   res.sendStatus(204)
 })
 
-app.post("/api/add-passkey", auth, async (req: RequestUser, res: Response) => {
+app.post("/api/add-passkey", async (req: RequestUser, res: Response) => {
   const userPasskeys = await Passkeys.findAll({
     where: { userId: req.user.id }
   })
@@ -850,106 +809,32 @@ app.post("/api/add-passkey", auth, async (req: RequestUser, res: Response) => {
   })
 })
 
-app.post(
-  "/api/confirm-passkey",
-  auth,
-  async (req: RequestUser, res: Response) => {
-    const passkeyName = req.body.passkeyName?.trim()
+app.post("/api/confirm-passkey", async (req: RequestUser, res: Response) => {
+  const passkeyName = req.body.passkeyName?.trim()
 
-    if (!passkeyName) {
-      res.status(400).json({
-        message: "Passkey name is missing"
-      })
-      return
-    }
-
-    if (passkeyName.length > 50) {
-      res.status(400).json({
-        message: "Passkey name too long"
-      })
-      return
-    }
-
-    if (!req.body.challengeId) {
-      res.status(400).json({
-        message: "Challenge ID missing"
-      })
-      return
-    }
-
-    const challengeIndex = challenges.findIndex(
-      (c) => c.id === req.body.challengeId && c.userId === req.user.id
-    )
-
-    if (challengeIndex === -1) {
-      res.status(400).json({
-        message: "Challenge not found or expired"
-      })
-      return
-    }
-
-    const challengeData = challenges[challengeIndex]
-
-    if (Date.now() - challengeData.timestamp > FIVE_MINUTES) {
-      challenges.splice(challengeIndex, 1)
-      res.status(400).json({
-        message: "Challenge expired"
-      })
-      return
-    }
-
-    /* eslint-disable-next-line init-declarations */
-    let verification
-    try {
-      verification = await verifyRegistrationResponse({
-        expectedChallenge: challengeData.challenge,
-        expectedOrigin: origin,
-        expectedRPID: rpID,
-        response: req.body
-      })
-    } catch (error) {
-      console.error("Verification error:", error)
-      res.status(400).json({
-        error: error instanceof Error ? error.message : String(error),
-        message: "Verification failed"
-      })
-      return
-    }
-
-    if (!verification.verified || !verification.registrationInfo) {
-      res.status(400).json({ message: "Verification failed" })
-      return
-    }
-
-    await Passkeys.create({
-      counter: verification.registrationInfo.credential.counter,
-      credentialBackedUp: verification.registrationInfo.credentialBackedUp,
-      credentialDeviceType: verification.registrationInfo.credentialDeviceType,
-      credentialID: verification.registrationInfo.credential.id,
-      credentialPublicKey: Buffer.from(
-        verification.registrationInfo.credential.publicKey
-      ).toString("base64url"),
-      name: passkeyName,
-      transports: req.body.response.transports
-        ? JSON.stringify(req.body.response.transports)
-        : null,
-      userId: req.user.id
+  if (!passkeyName) {
+    res.status(400).json({
+      message: "Passkey name is missing"
     })
-
-    challenges.splice(challengeIndex, 1)
-
-    res.sendStatus(204)
+    return
   }
-)
 
-app.post("/api/verify-passkey", async (req: Request, res: Response) => {
+  if (passkeyName.length > 50) {
+    res.status(400).json({
+      message: "Passkey name too long"
+    })
+    return
+  }
+
   if (!req.body.challengeId) {
-    res.status(400).json({ message: "Challenge ID missing" })
+    res.status(400).json({
+      message: "Challenge ID missing"
+    })
     return
   }
 
   const challengeIndex = challenges.findIndex(
-    (c) => c.id === req.body.challengeId
+    (c) => c.id === req.body.challengeId && c.userId === req.user.id
   )
 
   if (challengeIndex === -1) {
@@ -969,30 +854,10 @@ app.post("/api/verify-passkey", async (req: Request, res: Response) => {
     return
   }
 
-  const passkey = await Passkeys.findOne({
-    include: [Users],
-    where: {
-      credentialID: req.body.id
-    }
-  })
-
-  if (!passkey) {
-    res.status(400).json({ message: "Passkey not found" })
-    return
-  }
-
   /* eslint-disable-next-line init-declarations */
   let verification
   try {
-    verification = await verifyAuthenticationResponse({
-      credential: {
-        counter: Number(passkey.counter),
-        id: passkey.credentialID,
-        publicKey: Buffer.from(passkey.credentialPublicKey, "base64url"),
-        transports: passkey.transports
-          ? JSON.parse(passkey.transports)
-          : undefined
-      },
+    verification = await verifyRegistrationResponse({
       expectedChallenge: challengeData.challenge,
       expectedOrigin: origin,
       expectedRPID: rpID,
@@ -1007,49 +872,32 @@ app.post("/api/verify-passkey", async (req: Request, res: Response) => {
     return
   }
 
-  if (!verification.verified) {
+  if (!verification.verified || !verification.registrationInfo) {
     res.status(400).json({ message: "Verification failed" })
     return
   }
 
-  await passkey.update({
-    counter: verification.authenticationInfo.newCounter
+  await Passkeys.create({
+    counter: verification.registrationInfo.credential.counter,
+    credentialBackedUp: verification.registrationInfo.credentialBackedUp,
+    credentialDeviceType: verification.registrationInfo.credentialDeviceType,
+    credentialID: verification.registrationInfo.credential.id,
+    credentialPublicKey: Buffer.from(
+      verification.registrationInfo.credential.publicKey
+    ).toString("base64url"),
+    name: passkeyName,
+    transports: req.body.response.transports
+      ? JSON.stringify(req.body.response.transports)
+      : null,
+    userId: req.user.id
   })
 
   challenges.splice(challengeIndex, 1)
 
-  const session = await Sessions.create({
-    token: cryptoRandomString({ length: 128 }),
-    userAgent: req.body.userAgent || req.headers["user-agent"] || "Unknown",
-    userId: passkey.user.id
-  })
-
-  const notifications = await Notifications.findAll({
-    where: { userId: passkey.user.id }
-  })
-
-  const tetris = await Scores.findAll({
-    where: { userId: passkey.user.id }
-  })
-
-  const chatsList = await getChats(passkey.user.id)
-
-  res.json({
-    chatsList,
-    notifications,
-    tetris,
-    verified: true,
-    ...passkey.user.toJSON(),
-    emailToken: undefined,
-    otpSecret: undefined,
-    password: undefined,
-    privateKey: undefined,
-    token: session.token,
-    updatedAt: undefined
-  })
+  res.sendStatus(204)
 })
 
-app.post("/api/get-user", auth, async (req: RequestUser, res: Response) => {
+app.post("/api/get-user", async (req: RequestUser, res: Response) => {
   if (!parseInt(req.body.userId, 10) && !req.body.username) {
     res.status(400).json({
       message: "User requested does not exist"
@@ -1123,7 +971,7 @@ app.post("/api/get-user", auth, async (req: RequestUser, res: Response) => {
   res.json(user)
 })
 
-app.post("/api/user-prop", auth, async (req: RequestUser, res: Response) => {
+app.post("/api/user-prop", async (req: RequestUser, res: Response) => {
   const properties: string[] = [
     "directMessages",
     "friendRequests",
@@ -1182,7 +1030,7 @@ app.post("/api/user-prop", auth, async (req: RequestUser, res: Response) => {
   return res.sendStatus(204)
 })
 
-app.post("/api/avatar", auth, (req: RequestUser, res: Response) => {
+app.post("/api/avatar", (req: RequestUser, res: Response) => {
   axios
     .post(process.env.UPLOAD_LINK || "", req.body, {
       headers: {
@@ -1202,94 +1050,89 @@ app.post("/api/avatar", auth, (req: RequestUser, res: Response) => {
     })
 })
 
-app.post(
-  "/api/friend/:userId",
-  auth,
-  async (req: RequestUser, res: Response) => {
-    if (req.user.id === parseInt(req.params.userId, 10)) {
-      res.status(400).json({
-        message: "You can't friend yourself"
-      })
-      return
-    }
-    const user = await Users.findOne({
-      where: {
-        id: req.params.userId
-      }
+app.post("/api/friend/:userId", async (req: RequestUser, res: Response) => {
+  if (req.user.id === parseInt(req.params.userId, 10)) {
+    res.status(400).json({
+      message: "You can't friend yourself"
     })
-    if (!user) {
-      res.status(400).json({
-        message: "This user does not exist"
-      })
-      return
+    return
+  }
+  const user = await Users.findOne({
+    where: {
+      id: req.params.userId
     }
-    const friend = await Friends.findOne({
+  })
+  if (!user) {
+    res.status(400).json({
+      message: "This user does not exist"
+    })
+    return
+  }
+  const friend = await Friends.findOne({
+    where: {
+      friendId: user.id,
+      userId: req.user.id
+    }
+  })
+  if (!friend) {
+    await Friends.create({
+      friendId: user.id,
+      userId: req.user.id
+    })
+    await Friends.create({
+      friendId: req.user.id,
+      status: "incoming",
+      userId: user.id
+    })
+    await Notifications.create({
+      otherId: req.user.id,
+      userId: user.id
+    })
+    res.sendStatus(204)
+    return
+  } else if (!user.friendRequests && !friend.status) {
+    res.status(400).json({
+      message: "This user does not accept friend request"
+    })
+    return
+  } else if (friend.status === "accepted" || friend.status === "pending") {
+    await Friends.destroy({
       where: {
         friendId: user.id,
         userId: req.user.id
       }
     })
-    if (!friend) {
-      await Friends.create({
-        friendId: user.id,
-        userId: req.user.id
-      })
-      await Friends.create({
+    await Friends.destroy({
+      where: {
         friendId: req.user.id,
-        status: "incoming",
         userId: user.id
-      })
-      await Notifications.create({
-        otherId: req.user.id,
-        userId: user.id
-      })
-      res.sendStatus(204)
-      return
-    } else if (!user.friendRequests && !friend.status) {
-      res.status(400).json({
-        message: "This user does not accept friend request"
-      })
-      return
-    } else if (friend.status === "accepted" || friend.status === "pending") {
-      await Friends.destroy({
+      }
+    })
+  } else if (friend.status === "incoming") {
+    await Friends.update(
+      { status: "accepted" },
+      {
         where: {
           friendId: user.id,
           userId: req.user.id
         }
-      })
-      await Friends.destroy({
+      }
+    )
+    await Friends.update(
+      { status: "accepted" },
+      {
         where: {
           friendId: req.user.id,
           userId: user.id
         }
-      })
-    } else if (friend.status === "incoming") {
-      await Friends.update(
-        { status: "accepted" },
-        {
-          where: {
-            friendId: user.id,
-            userId: req.user.id
-          }
-        }
-      )
-      await Friends.update(
-        { status: "accepted" },
-        {
-          where: {
-            friendId: req.user.id,
-            userId: user.id
-          }
-        }
-      )
-    }
-    res.sendStatus(204)
+      }
+    )
   }
-)
+  res.sendStatus(204)
+})
 
 app.post(
   "/api/remove/:chatId/:userId",
-  auth,
   async (req: RequestUser, res: Response) => {
     const user = await Users.findOne({
       where: {
@@ -1338,7 +1181,7 @@ app.post(
   }
 )
 
-app.post("/api/feedback", auth, async (req: RequestUser, res: Response) => {
+app.post("/api/feedback", async (req: RequestUser, res: Response) => {
   if (!req.body.feedback || req.body.feedback.length < 1) {
     res.status(400).json({
       message: "Feedback has no content"
@@ -1358,7 +1201,7 @@ app.post("/api/feedback", auth, async (req: RequestUser, res: Response) => {
   res.sendStatus(204)
 })
 
-app.post("/api/history", auth, async (req: RequestUser, res: Response) => {
+app.post("/api/history", async (req: RequestUser, res: Response) => {
   if (!req.body.history || req.body.history.length < 1) {
     res.status(400).json({
       message: "History has no content"
@@ -1379,7 +1222,6 @@ app.post("/api/history", auth, async (req: RequestUser, res: Response) => {
 
 app.post(
   "/api/direct-message/:userId",
-  auth,
   async (req: RequestUser, res: Response) => {
     if (!req.params.userId) {
       res.status(400).json({
@@ -1449,7 +1291,7 @@ app.post(
   }
 )
 
-app.post("/api/read-new/:id", auth, async (req: RequestUser, res: Response) => {
+app.post("/api/read-new/:id", async (req: RequestUser, res: Response) => {
   if (!req.params.id) {
     return res.status(400).json({
       message: "No chat specified"
@@ -1494,7 +1336,6 @@ app.post("/api/read-new/:id", auth, async (req: RequestUser, res: Response) => {
 
 app.post(
   "/api/upload",
-  auth,
   upload.single("attachment"),
   async (req: RequestUserFile, res: Response) => {
     if (req.user.id !== 1) {
@@ -1522,45 +1363,40 @@ app.post(
   }
 )
 
-app.post(
-  "/api/delete-passkey/:id",
-  auth,
-  async (req: RequestUser, res: Response) => {
-    if (!req.body?.password) {
-      res.status(400).json({
-        message: "Password is required"
-      })
-      return
-    }
-
-    if (!(await argon2.verify(req.user.password, req.body.password))) {
-      res.status(400).json({
-        message: "Incorrect password"
-      })
-      return
-    }
-
-    const passkey = await Passkeys.findOne({
-      where: {
-        id: req.params.id,
-        userId: req.user.id
-      }
+app.post("/api/delete-passkey/:id", async (req: RequestUser, res: Response) => {
+  if (!req.body?.password) {
+    res.status(400).json({
+      message: "Password is required"
     })
-
-    if (!passkey) {
-      res.status(401).json({ message: "Passkey not found" })
-      return
-    }
-
-    await passkey.destroy()
-
-    res.sendStatus(204)
+    return
   }
-)
+
+  if (!(await argon2.verify(req.user.password, req.body.password))) {
+    res.status(400).json({
+      message: "Incorrect password"
+    })
+    return
+  }
+
+  const passkey = await Passkeys.findOne({
+    where: {
+      id: req.params.id,
+      userId: req.user.id
+    }
+  })
+
+  if (!passkey) {
+    res.status(401).json({ message: "Passkey not found" })
+    return
+  }
+
+  await passkey.destroy()
+
+  res.sendStatus(204)
+})
 
 app.delete(
   "/api/delete/:messageId",
-  auth,
   async (req: RequestUser, res: Response) => {
     const message = await Messages.findOne({
       where: {
@@ -1590,7 +1426,6 @@ app.delete(
 
 app.delete(
   "/api/delete-chat/:chatId",
-  auth,
   async (req: RequestUser, res: Response) => {
     const currentChat = await Chats.findOne({
       where: {
@@ -1640,7 +1475,6 @@ app.delete(
 
 app.delete(
   "/api/delete-feedback/:feedbackId",
-  auth,
   async (req: RequestUser, res: Response) => {
     if (!req.user.admin) {
       res.status(403).json({
@@ -1670,39 +1504,34 @@ app.delete(
   }
 )
 
-app.delete(
-  "/api/clear-history",
-  auth,
-  async (req: RequestUser, res: Response) => {
-    const user = await Users.findOne({
-      where: {
-        id: req.user.id
-      }
-    })
-    if (!user) {
-      res.status(400).json({
-        message: "This user does not exist"
-      })
-      return
+app.delete("/api/clear-history", async (req: RequestUser, res: Response) => {
+  const user = await Users.findOne({
+    where: {
+      id: req.user.id
     }
-    if (!user.switcherHistory) {
-      res.json({
-        message: "No history found"
-      })
-      return
-    }
-    await user.update({
-      switcherHistory: []
+  })
+  if (!user) {
+    res.status(400).json({
+      message: "This user does not exist"
     })
-    res.json({
-      message: "History cleared"
-    })
+    return
   }
-)
+  if (!user.switcherHistory) {
+    res.json({
+      message: "No history found"
+    })
+    return
+  }
+  await user.update({
+    switcherHistory: []
+  })
+  res.json({
+    message: "History cleared"
+  })
+})
 
 app.delete(
   "/api/delete-session/:id",
-  auth,
   async (req: RequestUser, res: Response) => {
     const session = await Sessions.findOne({
       where: {
@@ -1720,83 +1549,74 @@ app.delete(
   }
 )
 
-app.patch(
-  "/api/edit-passkey/:id",
-  auth,
-  async (req: RequestUser, res: Response) => {
-    const passkeyName = req.body.passkeyName?.trim()
+app.patch("/api/edit-passkey/:id", async (req: RequestUser, res: Response) => {
+  const passkeyName = req.body.passkeyName?.trim()
 
-    if (!passkeyName) {
-      res.status(400).json({ message: "Passkey name is missing" })
-      return
-    }
-
-    if (passkeyName.length > 50) {
-      res.status(400).json({ message: "Passkey name too long" })
-      return
-    }
-
-    const passkey = await Passkeys.findOne({
-      where: {
-        id: req.params.id,
-        userId: req.user.id
-      }
-    })
-
-    if (!passkey) {
-      res.status(401).json({ message: "Passkey not found" })
-      return
-    }
-
-    await passkey.update({ name: passkeyName })
-
-    res.json(passkeyName)
+  if (!passkeyName) {
+    res.status(400).json({ message: "Passkey name is missing" })
+    return
   }
-)
 
-app.patch(
-  "/api/edit/:messageId",
-  auth,
-  async (req: RequestUser, res: Response) => {
-    const messageText = req.body.messageContents?.trim()
-    const message = await Messages.findOne({
-      where: {
-        id: req.params.messageId,
-        userId: req.user.id
-      }
-    })
-    if (!message || !messageText) {
-      res.status(400).json({
-        message: "Message has no content"
-      })
-      return
+  if (passkeyName.length > 50) {
+    res.status(400).json({ message: "Passkey name too long" })
+    return
+  }
+
+  const passkey = await Passkeys.findOne({
+    where: {
+      id: req.params.id,
+      userId: req.user.id
     }
-    if (messageText !== message.messageContents) {
-      await message.update({
-        edited: true,
-        messageContents: messageText
-      })
-      await resolveEmbeds(message)
-      const editedMessage = await Messages.findOne({
-        include: [
-          {
-            as: "user",
-            attributes: ["id", "username", "avatar"],
-            model: Users
-          }
-        ],
-        where: {
-          id: message.id
+  })
+
+  if (!passkey) {
+    res.status(401).json({ message: "Passkey not found" })
+    return
+  }
+
+  await passkey.update({ name: passkeyName })
+
+  res.json(passkeyName)
+})
+
+app.patch("/api/edit/:messageId", async (req: RequestUser, res: Response) => {
+  const messageText = req.body.messageContents?.trim()
+  const message = await Messages.findOne({
+    where: {
+      id: req.params.messageId,
+      userId: req.user.id
+    }
+  })
+  if (!message || !messageText) {
+    res.status(400).json({
+      message: "Message has no content"
+    })
+    return
+  }
+  if (messageText !== message.messageContents) {
+    await message.update({
+      edited: true,
+      messageContents: messageText
+    })
+    await resolveEmbeds(message)
+    const editedMessage = await Messages.findOne({
+      include: [
+        {
+          as: "user",
+          attributes: ["id", "username", "avatar"],
+          model: Users
         }
-      })
-      res.json(editedMessage)
-    }
+      ],
+      where: {
+        id: message.id
+      }
+    })
+    res.json(editedMessage)
   }
-)
+})
 
 app.patch(
   "/api/edit-status-message",
-  auth,
   async (req: RequestUser, res: Response) => {
     const statusText = req.body.statusMessage?.trim()
     if (!statusText) {
@@ -1852,7 +1672,7 @@ app.patch(
   }
 )
 
-app.patch("/api/score", auth, (req: RequestUser, res: Response) => {
+app.patch("/api/score", (req: RequestUser, res: Response) => {
   if (!req.body.gameId) {
     res.status(400).json({
       message: "No game specified"
@@ -1926,240 +1746,232 @@ app.patch("/api/score", auth, (req: RequestUser, res: Response) => {
   res.sendStatus(204)
 })
 
-app.patch(
-  "/api/edit-chat/:chat",
-  auth,
-  async (req: RequestUser, res: Response) => {
-    const chat = await Chats.findOne({
-      where: {
-        id: req.params.chat
+app.patch("/api/edit-chat/:chat", async (req: RequestUser, res: Response) => {
+  const chat = await Chats.findOne({
+    where: {
+      id: req.params.chat
+    }
+  })
+  if (!chat) {
+    res.status(400).json({
+      message: "Chat does not exist"
+    })
+    return
+  }
+  if (chat.owner !== req.user.id) {
+    res.status(403).json({
+      message: "Forbidden"
+    })
+    return
+  }
+  if (!req.body.name) {
+    res.status(400).json({
+      message: "Chat name not specified"
+    })
+    return
+  }
+  if (typeof req.body.requireVerification !== "boolean") {
+    res.status(400).json({
+      message: "requireVerification not specified"
+    })
+    return
+  }
+  if (req.body.requireVerification === true && !req.user.emailVerified) {
+    res.status(400).json({
+      message: "You are not verified"
+    })
+    return
+  }
+  if (req.body.icon && !req.body.icon.match(/(https?:\/\/\S+)/g)) {
+    res.status(400).json({
+      message: "Icon is not a valid URL"
+    })
+    return
+  }
+  if (req.body.name.length > 30) {
+    res.status(400).json({
+      message: "Chat name too long"
+    })
+    return
+  }
+  if (req.body.description.length > 500) {
+    res.status(400).json({
+      message: "Chat description too long"
+    })
+    return
+  }
+  await chat.update({
+    description: req.body.description,
+    icon: req.body.icon,
+    name: req.body.name,
+    requireVerification: req.body.requireVerification
+  })
+  chat.dataValues.messages = await Messages.findAll({
+    include: [
+      {
+        as: "user",
+        attributes: ["id", "username", "avatar"],
+        model: Users
+      }
+    ],
+    where: { chatId: req.params.chat }
+  })
+  await Promise.all(
+    req.body.users.map(async (userId: number) => {
+      const checkUser = await Users.findOne({
+        where: {
+          id: userId
+        }
+      })
+      if (checkUser) {
+        await ChatAssociations.create({
+          chatId: req.params.chat,
+          userId
+        })
+        const sendPromises = Array.from(wss.clients).map(
+          async (wsClient: WebSocket) => {
+            if (
+              (wsClient as AuthWebSocket)?.user &&
+              (wsClient as AuthWebSocket)?.user.id !== req.user.id
+            ) {
+              const friend = await Friends.findOne({
+                where: {
+                  friendId: req.user.id,
+                  userId: (wsClient as AuthWebSocket)?.user?.id
+                }
+              })
+              wsClient.send(
+                JSON.stringify({
+                  newUser: {
+                    avatar: checkUser.avatar,
+                    chatId: req.params.chat,
+                    friend: { status: friend?.status },
+                    friendRequests: checkUser.friendRequests,
+                    gameName: checkUser.gameName,
+                    gameStatus: checkUser.gameStatus,
+                    id: checkUser.id,
+                    playingSince: checkUser.playingSince,
+                    status: checkUser.status,
+                    statusMessage: checkUser.statusMessage,
+                    username: checkUser.username
+                  }
+                })
+              )
+            }
+          }
+        )
+        await Promise.all(sendPromises)
+        await Notifications.create({
+          otherId: req.params.chat,
+          type: 1,
+          userId
+        })
       }
     })
-    if (!chat) {
-      res.status(400).json({
-        message: "Chat does not exist"
-      })
-      return
-    }
-    if (chat.owner !== req.user.id) {
-      res.status(403).json({
-        message: "Forbidden"
-      })
-      return
-    }
-    if (!req.body.name) {
-      res.status(400).json({
-        message: "Chat name not specified"
-      })
-      return
-    }
-    if (typeof req.body.requireVerification !== "boolean") {
-      res.status(400).json({
-        message: "requireVerification not specified"
-      })
-      return
-    }
-    if (req.body.requireVerification === true && !req.user.emailVerified) {
-      res.status(400).json({
-        message: "You are not verified"
-      })
-      return
-    }
-    if (req.body.icon && !req.body.icon.match(/(https?:\/\/\S+)/g)) {
-      res.status(400).json({
-        message: "Icon is not a valid URL"
-      })
-      return
-    }
-    if (req.body.name.length > 30) {
-      res.status(400).json({
-        message: "Chat name too long"
-      })
-      return
-    }
-    if (req.body.description.length > 500) {
-      res.status(400).json({
-        message: "Chat description too long"
-      })
-      return
-    }
-    await chat.update({
-      description: req.body.description,
-      icon: req.body.icon,
-      name: req.body.name,
-      requireVerification: req.body.requireVerification
+  )
+  if (chat.type === 2) {
+    chat.dataValues.users = await Users.findAll({
+      attributes: [
+        "id",
+        "username",
+        "avatar",
+        "status",
+        "statusMessage",
+        "gameName",
+        "friendRequests"
+      ],
+      include: [
+        {
+          as: "friend",
+          attributes: ["status"],
+          model: Friends,
+          required: false,
+          where: {
+            userId: req.user.id
+          }
+        }
+      ]
     })
-    chat.dataValues.messages = await Messages.findAll({
+  } else {
+    const chatAssociations = await ChatAssociations.findAll({
       include: [
         {
           as: "user",
-          attributes: ["id", "username", "avatar"],
+          attributes: [
+            "id",
+            "username",
+            "avatar",
+            "status",
+            "statusMessage",
+            "gameName",
+            "friendRequests"
+          ],
+          include: [
+            {
+              as: "friend",
+              attributes: ["status"],
+              model: Friends,
+              required: false,
+              where: {
+                userId: req.user.id
+              }
+            }
+          ],
           model: Users
         }
       ],
-      where: { chatId: req.params.chat }
+      where: { chatId: chat.id }
     })
-    await Promise.all(
-      req.body.users.map(async (userId: number) => {
-        const checkUser = await Users.findOne({
-          where: {
-            id: userId
-          }
-        })
-        if (checkUser) {
-          await ChatAssociations.create({
-            chatId: req.params.chat,
-            userId
-          })
-          const sendPromises = Array.from(wss.clients).map(
-            async (wsClient: WebSocket) => {
-              if (
-                (wsClient as AuthWebSocket)?.user &&
-                (wsClient as AuthWebSocket)?.user.id !== req.user.id
-              ) {
-                const friend = await Friends.findOne({
-                  where: {
-                    friendId: req.user.id,
-                    userId: (wsClient as AuthWebSocket)?.user?.id
-                  }
-                })
-                wsClient.send(
-                  JSON.stringify({
-                    newUser: {
-                      avatar: checkUser.avatar,
-                      chatId: req.params.chat,
-                      friend: { status: friend?.status },
-                      friendRequests: checkUser.friendRequests,
-                      gameName: checkUser.gameName,
-                      gameStatus: checkUser.gameStatus,
-                      id: checkUser.id,
-                      playingSince: checkUser.playingSince,
-                      status: checkUser.status,
-                      statusMessage: checkUser.statusMessage,
-                      username: checkUser.username
-                    }
-                  })
-                )
-              }
-            }
-          )
-          await Promise.all(sendPromises)
-          await Notifications.create({
-            otherId: req.params.chat,
-            type: 1,
-            userId
-          })
-        }
-      })
+    chat.dataValues.users = chatAssociations.map(
+      (association) => association.user
     )
-    if (chat.type === 2) {
-      chat.dataValues.users = await Users.findAll({
-        attributes: [
-          "id",
-          "username",
-          "avatar",
-          "status",
-          "statusMessage",
-          "gameName",
-          "friendRequests"
-        ],
-        include: [
-          {
-            as: "friend",
-            attributes: ["status"],
-            model: Friends,
-            required: false,
-            where: {
-              userId: req.user.id
-            }
-          }
-        ]
-      })
-    } else {
-      const chatAssociations = await ChatAssociations.findAll({
-        include: [
-          {
-            as: "user",
-            attributes: [
-              "id",
-              "username",
-              "avatar",
-              "status",
-              "statusMessage",
-              "gameName",
-              "friendRequests"
-            ],
-            include: [
-              {
-                as: "friend",
-                attributes: ["status"],
-                model: Friends,
-                required: false,
-                where: {
-                  userId: req.user.id
-                }
-              }
-            ],
-            model: Users
-          }
-        ],
-        where: { chatId: chat.id }
-      })
-      chat.dataValues.users = chatAssociations.map(
-        (association) => association.user
-      )
-    }
-    getChats(req.user.id).then((chats) => {
-      res.json({ chat, chats })
-    })
   }
-)
+  getChats(req.user.id).then((chats) => {
+    res.json({ chat, chats })
+  })
+})
 
-app.patch(
-  "/api/pin/:messageId",
-  auth,
-  async (req: RequestUser, res: Response) => {
-    if (!req.params.messageId) {
-      res.status(400).json({
-        message: "Message not specified"
-      })
-      return
-    }
-    const message = await Messages.findOne({
-      where: {
-        id: req.params.messageId
-      }
+app.patch("/api/pin/:messageId", async (req: RequestUser, res: Response) => {
+  if (!req.params.messageId) {
+    res.status(400).json({
+      message: "Message not specified"
     })
-    if (!message) {
-      res.status(400).json({
-        message: "Message could not be found"
-      })
-      return
-    }
-    const chat = await Chats.findOne({
-      where: {
-        id: message.chatId
-      }
-    })
-    if (!chat) {
-      res.status(400).json({
-        message: "Chat does not exist"
-      })
-      return
-    }
-    console.log(chat)
-    if (chat.type !== 1 && chat.owner !== req.user.id) {
-      res.status(403).json({
-        message: "Forbidden"
-      })
-      return
-    }
-    await message.update({
-      pinned: !message.pinned
-    })
-    res.sendStatus(204)
+    return
   }
-)
+  const message = await Messages.findOne({
+    where: {
+      id: req.params.messageId
+    }
+  })
+  if (!message) {
+    res.status(400).json({
+      message: "Message could not be found"
+    })
+    return
+  }
+  const chat = await Chats.findOne({
+    where: {
+      id: message.chatId
+    }
+  })
+  if (!chat) {
+    res.status(400).json({
+      message: "Chat does not exist"
+    })
+    return
+  }
+  console.log(chat)
+  if (chat.type !== 1 && chat.owner !== req.user.id) {
+    res.status(403).json({
+      message: "Forbidden"
+    })
+    return
+  }
+  await message.update({
+    pinned: !message.pinned
+  })
+  res.sendStatus(204)
+})
 
 wss.on("connection", (ws: AuthWebSocket) => {
   console.log("Socket opened")

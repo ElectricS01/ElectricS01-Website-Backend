@@ -3,12 +3,14 @@ import {
   Column,
   DataType,
   ForeignKey,
+  HasMany,
   Model,
   Table
 } from "sequelize-typescript"
 import type { Embed } from "../types/embeds"
 import Users from "./users"
 import Chats from "./chats"
+import Reactions from "./reactions"
 
 @Table
 export default class Messages extends Model {
@@ -40,4 +42,7 @@ export default class Messages extends Model {
 
   @BelongsTo(() => Users)
   user!: Users
+
+  @HasMany(() => Reactions)
+  reactions!: Reactions[]
 }

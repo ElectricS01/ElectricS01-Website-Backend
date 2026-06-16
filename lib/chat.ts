@@ -1,3 +1,4 @@
+import Reactions from "../models/reactions"
 import ChatAssociations from "../models/chatAssociations"
 import Chats from "../models/chats"
 import Friends from "../models/friends"
@@ -18,6 +19,10 @@ export const getChat = async function (chatId: string, userId: number) {
             as: "user",
             attributes: ["id", "username", "avatar"],
             model: Users
+          },
+          {
+            attributes: ["emoji", "userId"],
+            model: Reactions
           }
         ],
         model: Messages,

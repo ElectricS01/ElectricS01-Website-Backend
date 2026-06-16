@@ -4,7 +4,7 @@ Description=ElectricS01-Website-Backend Service
 [Service]
 Type=simple
 WorkingDirectory=/var/www/html/electrics01-website-backend
-ExecStart=npm run prod
+ExecStart=bun run prod
 Restart=always
 RestartSec=10
 

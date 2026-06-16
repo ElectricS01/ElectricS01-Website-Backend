@@ -9,7 +9,10 @@ export default async function authSession(
   next: NextFunction
 ) {
   const token = req.header("Authorization")
-  if (!token) return res.status(401).send("Access denied. No token provided.")
+  if (!token) {
+    res.status(401).send("Access denied. No token provided.")
+    return
+  }
   const session = await Sessions.findOne({
     include: [
       {
@@ -24,5 +27,6 @@ export default async function authSession(
     return
   }
   req.session = session
-  return next()
+  next()
+  return
 }
