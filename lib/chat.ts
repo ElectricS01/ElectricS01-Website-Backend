@@ -5,7 +5,28 @@ import Friends from "../models/friends"
 import Messages from "../models/messages"
 import Users from "../models/users"
 
-export const getChat = async function (chatId: string, userId: number) {
+export const getChatUserIds = function (
+  users: unknown,
+  currentUserId: number
+) {
+  if (!Array.isArray(users)) {
+    return []
+  }
+
+  return [
+    ...new Set(
+      users
+        .map((rawUserId: number | string) =>
+          Number.parseInt(String(rawUserId), 10)
+        )
+        .filter(
+          (userId: number) => !Number.isNaN(userId) && userId !== currentUserId
+        )
+    )
+  ]
+}
+
+export const getChat = async function (chatId: number, userId: number) {
   const chat = await Chats.findOne({
     include: [
       {

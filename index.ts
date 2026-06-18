@@ -5,7 +5,7 @@ import { rateLimit } from "express-rate-limit"
 import cryptoRandomString from "crypto-random-string"
 import OTPAuth from "otpauth"
 import QRCode from "qrcode"
-import { WebSocket, WebSocketServer } from "ws"
+import { WebSocketServer } from "ws"
 import multer from "multer"
 import {
   generateRegistrationOptions,
@@ -30,7 +30,8 @@ import auth from "./lib/auth"
 import authSession from "./lib/authSession"
 import resolveEmbeds, { checkImage } from "./lib/resolveEmbeds"
 import NodemailerLibrary from "./lib/mailer"
-import { getChat, getChats } from "./lib/chat"
+import { getChat, getChatUserIds, getChats } from "./lib/chat"
+import { broadcastChatEvent, broadcastUserEvent } from "./lib/websocket"
 
 import authRoutes from "./routes/auth"
 
@@ -51,16 +52,6 @@ import * as process from "node:process"
 import path from "node:path"
 
 sequelize
-
-Users.update(
-  {
-    gameName: null,
-    gameStatus: null,
-    playingSince: null,
-    status: "offline"
-  },
-  { where: {} }
-)
 
 const express = require("express")
 
@@ -224,22 +215,56 @@ app.get("/api/user", async (req: RequestUser, res: Response) => {
 })
 
 app.get("/api/chat/:chatId", async (req: RequestUser, res: Response) => {
-  await getChat(req.params.chatId, req.user.id).then(async (chat) => {
-    const association = await ChatAssociations.findOne({
-      where: {
-        chatId: req.params.chatId,
-        userId: req.user.id
-      }
-    })
-    if (!association && chat?.type !== 2) {
-      res.status(400).json({
-        message: "Chat does not exist"
-      })
-      return
+  const association = await ChatAssociations.findOne({
+    where: {
+      chatId: req.params.chatId,
+      userId: req.user.id
     }
+  })
+
+  if (!association) {
+    res.status(403).json({
+      message: "You do not have access to this chat"
+    })
+    return
+  }
+
+  await getChat(association.chatId, req.user.id).then((chat) => {
     res.json(chat)
     return
   })
+})
+
+app.get("/api/chat-users/:chatId", async (req: RequestUser, res: Response) => {
+  const association = await ChatAssociations.findOne({
+    where: {
+      chatId: req.params.chatId,
+      userId: req.user.id
+    }
+  })
+
+  if (association === null) {
+    res.status(400).json({
+      message: "You do not have access to this chat"
+    })
+    return
+  }
+
+  const chatAssociations = await ChatAssociations.findAll({
+    include: [
+      {
+        as: "user",
+        attributes: ["id"],
+        model: Users
+      }
+    ],
+    where: { chatId: association.chatId }
+  })
+
+  const users = chatAssociations.map((mapAssociation) => mapAssociation.user.id)
+
+  res.json(users)
+  return
 })
 
 app.get("/api/chats", (req: RequestUser, res: Response) => {
@@ -385,18 +410,12 @@ app.post("/api/message", async (req: RequestUser, res: Response) => {
       { notifications: 0 },
       { where: { chatId: req.body.chatId, userId: req.user.id } }
     )
-    const chatAssociations = await ChatAssociations.findAll({
-      where: { chatId: req.body.chatId }
-    })
-    wss.clients.forEach((wsClient: WebSocket) => {
-      if ((wsClient as AuthWebSocket)?.user) {
-        const user = chatAssociations.find(
-          (findUser) => findUser.userId === (wsClient as AuthWebSocket).user?.id
-        )
-        if (user && user.userId !== lastMessage.userId)
-          wsClient.send(JSON.stringify({ newMessage: lastMessage }))
-      }
-    })
+    await broadcastChatEvent(
+      wss,
+      chat.id,
+      { newMessage: lastMessage },
+      lastMessage.userId
+    )
     getChats(req.user.id).then((chats) => {
       res.json({ chats, lastMessage })
     })
@@ -485,11 +504,23 @@ app.post("/api/react", async (req: RequestUser, res: Response) => {
   }
 
   try {
-    await Reactions.create({
+    const reaction = await Reactions.create({
       emoji: cleanEmoji,
       messageId,
       userId: req.user.id
     })
+
+    await broadcastChatEvent(
+      wss,
+      message.chatId,
+      {
+        newReaction: {
+          messageId,
+          reaction
+        }
+      },
+      req.user.id
+    )
   } catch (error) {
     if (!(error instanceof UniqueConstraintError)) {
       throw error
@@ -576,6 +607,18 @@ app.delete("/api/react", async (req: RequestUser, res: Response) => {
 
   await existing.destroy()
 
+  await broadcastChatEvent(
+    wss,
+    message.chatId,
+    {
+      deleteReaction: {
+        messageId,
+        reactionId: existing.id
+      }
+    },
+    req.user.id
+  )
+
   return res.sendStatus(204)
 })
 
@@ -629,6 +672,51 @@ app.post("/api/create-chat", async (req: RequestUser, res: Response) => {
     type: "Owner",
     userId: newChat.owner
   })
+  const addedUserIds = (
+    await Promise.all(
+      getChatUserIds(req.body.users, req.user.id).map(async (userId) => {
+        const user = await Users.findOne({
+          where: {
+            id: userId
+          }
+        })
+
+        if (!user) {
+          return null
+        }
+
+        await ChatAssociations.create({
+          chatId: newChat.id,
+          userId
+        })
+        await Notifications.create({
+          otherId: newChat.id,
+          type: 1,
+          userId
+        })
+        return userId
+      })
+    )
+  ).filter((userId): userId is number => userId !== null)
+  if (addedUserIds.length > 0) {
+    await broadcastChatEvent(
+      wss,
+      newChat.id,
+      {
+        newChat: {
+          description: newChat.description,
+          icon: newChat.icon,
+          id: newChat.id,
+          latest: newChat.latest,
+          name: newChat.name,
+          owner: newChat.owner,
+          requireVerification: newChat.requireVerification,
+          type: newChat.type
+        }
+      },
+      req.user.id
+    )
+  }
   getChat(newChat.id, req.user.id).then((chat) => {
     getChats(req.user.id).then((chats) => {
       res.json({ chat, chats })
@@ -1150,6 +1238,12 @@ app.post(
       })
       return
     }
+    if (currentChat.type !== 0) {
+      res.status(400).json({
+        message: "You cannot remove a user from this type of chat"
+      })
+      return
+    }
     if (currentChat.owner !== req.user.id) {
       res.status(400).json({
         message: "You are not allowed to remove this user"
@@ -1438,7 +1532,7 @@ app.delete(
       })
       return
     }
-    if (currentChat.id === 1) {
+    if (currentChat.type === 2) {
       res.status(400).json({
         message: "Cannot delete this chat"
       })
@@ -1465,7 +1559,7 @@ app.delete(
         chatId: req.params.chatId
       }
     })
-    getChat("1", req.user.id).then((chat) => {
+    getChat(1, req.user.id).then((chat) => {
       getChats(req.user.id).then((chats) => {
         res.json({ chat, chats })
       })
@@ -1636,38 +1730,9 @@ app.patch(
         statusMessage: statusText
       })
     }
-    const sendPromises = Array.from(wss.clients).map(
-      async (wsClient: WebSocket) => {
-        if (
-          (wsClient as AuthWebSocket)?.user &&
-          (wsClient as AuthWebSocket)?.user.id !== req.user.id
-        ) {
-          const friend = await Friends.findOne({
-            where: {
-              friendId: req.user.id,
-              userId: (wsClient as AuthWebSocket)?.user?.id
-            }
-          })
-          wsClient.send(
-            JSON.stringify({
-              changeUser: {
-                avatar: req.user.avatar,
-                friend: { status: friend?.status },
-                friendRequests: req.user.friendRequests,
-                gameName: req.user.gameName,
-                gameStatus: req.user.gameStatus,
-                id: req.user.id,
-                playingSince: req.user.playingSince,
-                status: req.user.status,
-                statusMessage: req.user.statusMessage,
-                username: req.user.username
-              }
-            })
-          )
-        }
-      }
-    )
-    await Promise.all(sendPromises)
+    await broadcastUserEvent(wss, "changeUser", req.user, {
+      excludeUserId: req.user.id
+    })
     res.json({ statusMessage: req.user.statusMessage })
   }
 )
@@ -1814,10 +1879,24 @@ app.patch("/api/edit-chat/:chat", async (req: RequestUser, res: Response) => {
         model: Users
       }
     ],
-    where: { chatId: req.params.chat }
+    where: { chatId: chat.id }
   })
+  const parsedUserIds = getChatUserIds(req.body.users, req.user.id)
+  const existingAssociations = await ChatAssociations.findAll({
+    attributes: ["userId"],
+    where: {
+      chatId: chat.id,
+      userId: parsedUserIds
+    }
+  })
+  const existingUserIds = new Set(
+    existingAssociations.map((association) => Number(association.userId))
+  )
   await Promise.all(
-    req.body.users.map(async (userId: number) => {
+    parsedUserIds.map(async (userId) => {
+      if (existingUserIds.has(userId)) {
+        return
+      }
       const checkUser = await Users.findOne({
         where: {
           id: userId
@@ -1825,44 +1904,15 @@ app.patch("/api/edit-chat/:chat", async (req: RequestUser, res: Response) => {
       })
       if (checkUser) {
         await ChatAssociations.create({
-          chatId: req.params.chat,
+          chatId: chat.id,
           userId
         })
-        const sendPromises = Array.from(wss.clients).map(
-          async (wsClient: WebSocket) => {
-            if (
-              (wsClient as AuthWebSocket)?.user &&
-              (wsClient as AuthWebSocket)?.user.id !== req.user.id
-            ) {
-              const friend = await Friends.findOne({
-                where: {
-                  friendId: req.user.id,
-                  userId: (wsClient as AuthWebSocket)?.user?.id
-                }
-              })
-              wsClient.send(
-                JSON.stringify({
-                  newUser: {
-                    avatar: checkUser.avatar,
-                    chatId: req.params.chat,
-                    friend: { status: friend?.status },
-                    friendRequests: checkUser.friendRequests,
-                    gameName: checkUser.gameName,
-                    gameStatus: checkUser.gameStatus,
-                    id: checkUser.id,
-                    playingSince: checkUser.playingSince,
-                    status: checkUser.status,
-                    statusMessage: checkUser.statusMessage,
-                    username: checkUser.username
-                  }
-                })
-              )
-            }
-          }
-        )
-        await Promise.all(sendPromises)
+        await broadcastUserEvent(wss, "newUser", checkUser, {
+          chatId: chat.id,
+          excludeUserId: req.user.id
+        })
         await Notifications.create({
-          otherId: req.params.chat,
+          otherId: chat.id,
           type: 1,
           userId
         })
@@ -1998,38 +2048,9 @@ wss.on("connection", (ws: AuthWebSocket) => {
       ws.user = session.user
       ws.send(JSON.stringify({ authSuccess: "Token accepted." }))
       await session.user.update({ status: "online" })
-      const sendPromises = Array.from(wss.clients).map(
-        async (wsClient: WebSocket) => {
-          if (
-            (wsClient as AuthWebSocket)?.user &&
-            (wsClient as AuthWebSocket).user.id !== ws.user.id
-          ) {
-            const friend = await Friends.findOne({
-              where: {
-                friendId: ws.user.id,
-                userId: (wsClient as AuthWebSocket)?.user?.id
-              }
-            })
-            wsClient.send(
-              JSON.stringify({
-                changeUser: {
-                  avatar: ws.user.avatar,
-                  friend: { status: friend?.status },
-                  friendRequests: ws.user.friendRequests,
-                  gameName: ws.user.gameName,
-                  gameStatus: ws.user.gameStatus,
-                  id: ws.user.id,
-                  playingSince: ws.user.playingSince,
-                  status: ws.user.status,
-                  statusMessage: ws.user.statusMessage,
-                  username: ws.user.username
-                }
-              })
-            )
-          }
-        }
-      )
-      await Promise.all(sendPromises)
+      await broadcastUserEvent(wss, "changeUser", ws.user, {
+        excludeUserId: ws.user.id
+      })
     } else if (socketMessage.page !== undefined) {
       if (ws.user) {
         const user = await Users.findOne({
@@ -2049,38 +2070,9 @@ wss.on("connection", (ws: AuthWebSocket) => {
             playingSince: Date.now()
           })
           if (user) ws.user = user
-          const sendPromises = Array.from(wss.clients).map(
-            async (wsClient: WebSocket) => {
-              if (
-                (wsClient as AuthWebSocket)?.user &&
-                (wsClient as AuthWebSocket).user.id !== ws.user.id
-              ) {
-                const friend = await Friends.findOne({
-                  where: {
-                    friendId: ws.user.id,
-                    userId: (wsClient as AuthWebSocket)?.user?.id
-                  }
-                })
-                wsClient.send(
-                  JSON.stringify({
-                    changeUser: {
-                      avatar: ws.user.avatar,
-                      friend: { status: friend?.status },
-                      friendRequests: ws.user.friendRequests,
-                      gameName: ws.user.gameName,
-                      gameStatus: ws.user.gameStatus,
-                      id: ws.user.id,
-                      playingSince: ws.user.playingSince,
-                      status: ws.user.status,
-                      statusMessage: ws.user.statusMessage,
-                      username: ws.user.username
-                    }
-                  })
-                )
-              }
-            }
-          )
-          await Promise.all(sendPromises)
+          await broadcastUserEvent(wss, "changeUser", ws.user, {
+            excludeUserId: ws.user.id
+          })
         }
       }
     }
@@ -2093,41 +2085,54 @@ wss.on("connection", (ws: AuthWebSocket) => {
         playingSince: null,
         status: "offline"
       })
-      const sendPromises = Array.from(wss.clients).map(
-        async (wsClient: WebSocket) => {
-          if ((wsClient as AuthWebSocket)?.user) {
-            const friend = await Friends.findOne({
-              where: {
-                friendId: ws.user.id,
-                userId: (wsClient as AuthWebSocket)?.user?.id
-              }
-            })
-            wsClient.send(
-              JSON.stringify({
-                changeUser: {
-                  avatar: ws.user.avatar,
-                  friend: { status: friend?.status },
-                  friendRequests: ws.user.friendRequests,
-                  gameName: ws.user.gameName,
-                  gameStatus: ws.user.gameStatus,
-                  id: ws.user.id,
-                  playingSince: ws.user.playingSince,
-                  status: ws.user.status,
-                  statusMessage: ws.user.statusMessage,
-                  username: ws.user.username
-                }
-              })
-            )
-          }
-        }
-      )
-      await Promise.all(sendPromises)
+      await broadcastUserEvent(wss, "changeUser", ws.user, {
+        excludeUserId: ws.user.id
+      })
     }
     console.log("Socket closed")
     ws.close()
   })
 })
 
-app.listen(port, () => {
+app.listen(port, async () => {
+  await Users.update(
+    {
+      gameName: null,
+      gameStatus: null,
+      playingSince: null,
+      status: "offline"
+    },
+    { where: {} }
+  )
+
+  const [users, chatAssociations] = await Promise.all([
+    Users.findAll({
+      attributes: ["id"]
+    }),
+    ChatAssociations.findAll({
+      attributes: ["userId"],
+      where: {
+        chatId: 1
+      }
+    })
+  ])
+
+  const existingUserIds = new Set(
+    chatAssociations.map((association) => association.userId)
+  )
+
+  await Promise.all(
+    users.map(async (user) => {
+      if (existingUserIds.has(user.id)) {
+        return
+      }
+
+      await ChatAssociations.create({
+        chatId: 1,
+        userId: user.id
+      })
+    })
+  )
+
   console.log(`ElectricS01-Website-Backend listening on port ${port}`)
 })

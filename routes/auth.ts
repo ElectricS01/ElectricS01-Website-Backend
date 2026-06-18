@@ -16,6 +16,7 @@ import Sessions from "../models/sessions"
 import Notifications from "../models/notifications"
 import Scores from "../models/scores"
 import Passkeys from "../models/passkeys"
+import ChatAssociations from "../models/chatAssociations"
 
 import { FIVE_MINUTES, rpID, origin, challenges } from "../index"
 
@@ -158,9 +159,10 @@ router.post("/register", async (req: Request, res: Response) => {
     savePrivateKey: req.body.savePrivateKey,
     username: req.body.username
   })
+
   emailLibrary
     .sendEmail(
-      "support@electrics01.com",
+      "ElectricS01.com <support@electrics01.com>",
       req.body.email,
       `Hi ${user.username}, Verify your email address`,
       `Hi ${user.username},\nPlease click the link below to verify your email address:\nhttps://electrics01.com/verify?token=${user.emailToken}\n\nIf you did not request this email, please ignore it.\n\nThanks,\nElectrics01 Support Team`
@@ -168,26 +170,21 @@ router.post("/register", async (req: Request, res: Response) => {
     .catch((e: AxiosError) => {
       console.log("Error occurred while sending email:", e)
     })
+
   const session = await Sessions.create({
     token: cryptoRandomString({ length: 128 }),
     userAgent: req.body.userAgent || req.headers["user-agent"] || "Unknown",
     userId: user.id
   })
-  const notifications = await Notifications.findAll({
-    where: {
-      userId: user.id
-    }
+
+  await ChatAssociations.create({
+    chatId: 1,
+    userId: user.id
   })
-  const tetris = await Scores.findAll({
-    where: {
-      userId: user.id
-    }
-  })
+
   getChats(user.id).then((chatsList) => {
     res.json({
       chatsList,
-      notifications,
-      tetris,
       token: session.token,
       ...user.toJSON(),
       emailToken: undefined,
