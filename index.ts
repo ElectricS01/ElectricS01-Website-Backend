@@ -254,14 +254,17 @@ app.get("/api/chat-users/:chatId", async (req: RequestUser, res: Response) => {
     include: [
       {
         as: "user",
-        attributes: ["id"],
+        attributes: ["id", "username"],
         model: Users
       }
     ],
     where: { chatId: association.chatId }
   })
 
-  const users = chatAssociations.map((mapAssociation) => mapAssociation.user.id)
+  const users = chatAssociations.map((mapAssociation) => ({
+    id: mapAssociation.user.id,
+    username: mapAssociation.user.username
+  }))
 
   res.json(users)
   return
