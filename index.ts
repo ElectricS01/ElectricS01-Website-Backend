@@ -2029,7 +2029,13 @@ app.patch("/api/pin/:messageId", async (req: RequestUser, res: Response) => {
 wss.on("connection", (ws: AuthWebSocket) => {
   console.log("Socket opened")
 
+  ws.isAlive = true
+
   ws.on("error", console.error)
+
+  ws.on("pong", () => {
+    ws.isAlive = true
+  })
 
   ws.on("message", async (data: string) => {
     const socketMessage = JSON.parse(data)
@@ -2095,6 +2101,24 @@ wss.on("connection", (ws: AuthWebSocket) => {
     console.log("Socket closed")
     ws.close()
   })
+})
+
+const interval = setInterval(() => {
+  wss.clients.forEach((ws) => {
+    const socket = ws as AuthWebSocket
+
+    if (socket.isAlive === false) {
+      socket.terminate()
+      return
+    }
+
+    socket.isAlive = false
+    socket.ping()
+  })
+}, 30000)
+
+wss.on("close", () => {
+  clearInterval(interval)
 })
 
 app.listen(port, async () => {
