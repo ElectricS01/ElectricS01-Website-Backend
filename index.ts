@@ -3,7 +3,7 @@ import axios, { AxiosError, AxiosResponse } from "axios"
 import argon2 from "argon2"
 import { rateLimit } from "express-rate-limit"
 import cryptoRandomString from "crypto-random-string"
-import OTPAuth from "otpauth"
+import * as OTPAuth from "otpauth"
 import QRCode from "qrcode"
 import { WebSocketServer } from "ws"
 import multer from "multer"
@@ -1517,6 +1517,17 @@ app.delete(
 
     await message.destroy()
 
+    await broadcastChatEvent(
+      wss,
+      message.chatId,
+      {
+        deleteMessage: {
+          id: message.id
+        }
+      },
+      req.user.id
+    )
+
     res.sendStatus(204)
   }
 )
@@ -1684,32 +1695,45 @@ app.patch("/api/edit/:messageId", async (req: RequestUser, res: Response) => {
       userId: req.user.id
     }
   })
+
   if (!message || !messageText) {
     res.status(400).json({
       message: "Message has no content"
     })
     return
   }
-  if (messageText !== message.messageContents) {
-    await message.update({
-      edited: true,
-      messageContents: messageText
-    })
-    await resolveEmbeds(message)
-    const editedMessage = await Messages.findOne({
-      include: [
-        {
-          as: "user",
-          attributes: ["id", "username", "avatar"],
-          model: Users
-        }
-      ],
-      where: {
-        id: message.id
-      }
-    })
-    res.json(editedMessage)
+
+  if (messageText === message.messageContents) {
+    res.status(304).json({ message: "No changes made" })
+    return
   }
+
+  await message.update({
+    edited: true,
+    messageContents: messageText
+  })
+  await resolveEmbeds(message)
+  const editedMessage = await Messages.findOne({
+    include: [
+      {
+        as: "user",
+        attributes: ["id", "username", "avatar"],
+        model: Users
+      }
+    ],
+    where: {
+      id: message.id
+    }
+  })
+
+  await broadcastChatEvent(
+    wss,
+    message.chatId,
+    { editMessage: editedMessage },
+    req.user.id
+  )
+
+  res.json(editedMessage)
 })
 
 app.patch(

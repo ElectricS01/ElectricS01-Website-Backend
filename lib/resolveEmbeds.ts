@@ -54,7 +54,7 @@ export default async function resolveEmbeds(message: Messages) {
           }
           return undefined
         })
-        const embeds = await Promise.all(promises)
+        const embeds = (await Promise.all(promises)).filter(Boolean)
         await Messages.update(
           {
             embeds

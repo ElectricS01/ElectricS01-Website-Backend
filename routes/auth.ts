@@ -1,12 +1,13 @@
 import { AxiosError } from "axios"
 import { Request, Response, Router } from "express"
 import argon2 from "argon2"
-import OTPAuth from "otpauth"
+import * as OTPAuth from "otpauth"
 import cryptoRandomString from "crypto-random-string"
 import {
   generateAuthenticationOptions,
   verifyAuthenticationResponse
 } from "@simplewebauthn/server"
+import { z } from "zod"
 
 import { getChats } from "../lib/chat"
 import NodemailerLibrary from "../lib/mailer"
@@ -22,6 +23,7 @@ import { FIVE_MINUTES, rpID, origin, challenges } from "../index"
 
 const router = Router()
 const emailLibrary = new NodemailerLibrary()
+const emailSchema = z.email()
 
 router.get("/passkey-challenge", async (_: Request, res: Response) => {
   const options = await generateAuthenticationOptions({
@@ -124,6 +126,14 @@ router.post("/register", async (req: Request, res: Response) => {
     })
     return
   }
+
+  if (!emailSchema.safeParse(req.body.email).success) {
+    res.status(400).json({
+      message: "Invalid email"
+    })
+    return
+  }
+
   if (
     await Users.findOne({
       where: {
