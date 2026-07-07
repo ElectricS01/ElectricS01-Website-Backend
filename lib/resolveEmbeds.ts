@@ -1,13 +1,52 @@
 import axios from "axios"
 import cryptoRandomString from "crypto-random-string"
+import net from "node:net"
+import { lookup } from "node:dns/promises"
+import ipaddr from "ipaddr.js"
 
 import Messages from "../models/messages"
 
 import blacklist from "./blacklist.json"
 
-export const checkImage = async function (url: string) {
+const isBlacklisted = async function (url: URL) {
   try {
-    const res = await axios.head(url, {
+    if (
+      net.isIP(url.hostname) !== 0 ||
+      (blacklist as string[]).includes(url.hostname)
+    )
+      return true
+
+    const addresses = await lookup(url.hostname, {
+      all: true,
+      verbatim: true
+    })
+
+    for (const { address } of addresses) {
+      const ip = ipaddr.parse(address)
+
+      if (ip.range() !== "unicast") {
+        return true
+      }
+    }
+
+    return false
+  } catch (e) {
+    console.error(e)
+    return true
+  }
+}
+
+const isImage = async function (url: URL) {
+  try {
+    if (net.isIP(url.hostname) !== 0) {
+      return false
+    }
+
+    if ((blacklist as string[]).includes(url.hostname)) {
+      return false
+    }
+
+    const res = await axios.head(url.toString(), {
       headers: {
         "user-agent": "Googlebot/2.1 (+http://www.google.com/bot.html)"
       },
@@ -22,6 +61,11 @@ export const checkImage = async function (url: string) {
   }
 }
 
+export const checkImage = async function (url: string) {
+  const linkURL = new URL(url)
+  return isBlacklisted(linkURL) || (await isImage(linkURL))
+}
+
 export default async function resolveEmbeds(message: Messages) {
   try {
     if (message.messageContents) {
@@ -32,8 +76,7 @@ export default async function resolveEmbeds(message: Messages) {
       if (links) {
         const promises = links.map(async (embedLink, i) => {
           const linkURL = new URL(embedLink)
-          if ((blacklist as string[]).includes(linkURL.hostname)) {
-            console.log(`Blacklisted link ${linkURL.hostname}`)
+          if (await isBlacklisted(linkURL)) {
             return {
               embedLink,
               openGraph: {
@@ -43,16 +86,18 @@ export default async function resolveEmbeds(message: Messages) {
               type: "openGraph"
             }
           }
-          if (await checkImage(embedLink)) {
-            const securityToken = cryptoRandomString({ length: 32 })
-            return {
-              embedLink,
-              mediaProxyLink: `/api/media-proxy/${message.id}/${i}/${securityToken}`,
-              securityToken,
-              type: "image"
-            }
+
+          if (!(await isImage(linkURL))) {
+            return undefined
           }
-          return undefined
+
+          const securityToken = cryptoRandomString({ length: 32 })
+          return {
+            embedLink,
+            mediaProxyLink: `/api/media-proxy/${message.id}/${i}/${securityToken}`,
+            securityToken,
+            type: "image"
+          }
         })
         const embeds = (await Promise.all(promises)).filter(Boolean)
         await Messages.update(

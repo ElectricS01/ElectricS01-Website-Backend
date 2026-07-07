@@ -21,6 +21,7 @@
     "emoji-regex": "^10.6.0",
     "express": "^5.2.1",
     "express-rate-limit": "^7.5.1",
+    "ipaddr.js": "^2.4.0",
     "mariadb": "^3.5.3",
     "multer": "^2.2.0",
     "mysql2": "^3.22.5",
