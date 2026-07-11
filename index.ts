@@ -530,7 +530,7 @@ app.post("/api/react", async (req: RequestUser, res: Response) => {
     }
   }
 
-  return res.sendStatus(204)
+  res.sendStatus(204)
 })
 
 app.delete("/api/react", async (req: RequestUser, res: Response) => {
@@ -622,7 +622,7 @@ app.delete("/api/react", async (req: RequestUser, res: Response) => {
     req.user.id
   )
 
-  return res.sendStatus(204)
+  res.sendStatus(204)
 })
 
 app.post("/api/create-chat", async (req: RequestUser, res: Response) => {
