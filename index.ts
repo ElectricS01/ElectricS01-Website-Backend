@@ -419,6 +419,7 @@ app.post("/api/message", async (req: RequestUser, res: Response) => {
       { newMessage: lastMessage },
       lastMessage.userId
     )
+    lastMessage.dataValues.reactions = []
     getChats(req.user.id).then((chats) => {
       res.json({ chats, lastMessage })
     })
@@ -531,7 +532,7 @@ app.post("/api/react", async (req: RequestUser, res: Response) => {
   res.sendStatus(204)
 })
 
-app.delete("/api/react", async (req: RequestUser, res: Response) => {
+app.post("/api/unreact", async (req: RequestUser, res: Response) => {
   if (!req.body.messageId || !req.body.emoji) {
     res.status(400).json({
       message: "Missing required fields"
@@ -1715,6 +1716,10 @@ app.patch("/api/edit/:messageId", async (req: RequestUser, res: Response) => {
         as: "user",
         attributes: ["id", "username", "avatar"],
         model: Users
+      },
+      {
+        attributes: ["emoji", "userId"],
+        model: Reactions
       }
     ],
     where: {
