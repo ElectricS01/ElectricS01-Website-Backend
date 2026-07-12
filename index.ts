@@ -432,9 +432,7 @@ app.post("/api/message", async (req: RequestUser, res: Response) => {
 })
 
 app.post("/api/react", async (req: RequestUser, res: Response) => {
-  const { messageId, emoji } = req.body
-
-  if (!messageId || !emoji) {
+  if (!req.body.messageId || !req.body.emoji) {
     res.status(400).json({
       message: "Missing required fields"
     })
@@ -443,7 +441,7 @@ app.post("/api/react", async (req: RequestUser, res: Response) => {
 
   const message = await Messages.findOne({
     where: {
-      id: messageId
+      id: req.body.messageId
     }
   })
 
@@ -480,12 +478,12 @@ app.post("/api/react", async (req: RequestUser, res: Response) => {
     return
   }
 
-  if (typeof emoji !== "string") {
+  if (typeof req.body.emoji !== "string") {
     res.status(400).json({ message: "Invalid emoji" })
     return
   }
 
-  const cleanEmoji = emoji.trim()
+  const cleanEmoji = req.body.emoji.trim()
   const matches = cleanEmoji.match(emojiRegex())
 
   if (!matches || matches.length !== 1 || matches[0] !== cleanEmoji) {
@@ -496,7 +494,7 @@ app.post("/api/react", async (req: RequestUser, res: Response) => {
   const existing = await Reactions.findOne({
     where: {
       emoji: cleanEmoji,
-      messageId,
+      messageId: req.body.messageId,
       userId: req.user.id
     }
   })
@@ -509,7 +507,7 @@ app.post("/api/react", async (req: RequestUser, res: Response) => {
   try {
     const reaction = await Reactions.create({
       emoji: cleanEmoji,
-      messageId,
+      messageId: req.body.messageId,
       userId: req.user.id
     })
 
@@ -518,7 +516,7 @@ app.post("/api/react", async (req: RequestUser, res: Response) => {
       message.chatId,
       {
         newReaction: {
-          messageId,
+          messageId: req.body.messageId,
           reaction
         }
       },
@@ -534,9 +532,7 @@ app.post("/api/react", async (req: RequestUser, res: Response) => {
 })
 
 app.delete("/api/react", async (req: RequestUser, res: Response) => {
-  const { messageId, emoji } = req.body
-
-  if (!messageId || !emoji) {
+  if (!req.body.messageId || !req.body.emoji) {
     res.status(400).json({
       message: "Missing required fields"
     })
@@ -545,7 +541,7 @@ app.delete("/api/react", async (req: RequestUser, res: Response) => {
 
   const message = await Messages.findOne({
     where: {
-      id: messageId
+      id: req.body.messageId
     }
   })
 
@@ -582,12 +578,12 @@ app.delete("/api/react", async (req: RequestUser, res: Response) => {
     return
   }
 
-  if (typeof emoji !== "string") {
+  if (typeof req.body.emoji !== "string") {
     res.status(400).json({ message: "Invalid emoji" })
     return
   }
 
-  const cleanEmoji = emoji.trim()
+  const cleanEmoji = req.body.emoji.trim()
   const matches = cleanEmoji.match(emojiRegex())
 
   if (!matches || matches.length !== 1 || matches[0] !== cleanEmoji) {
@@ -598,7 +594,7 @@ app.delete("/api/react", async (req: RequestUser, res: Response) => {
   const existing = await Reactions.findOne({
     where: {
       emoji: cleanEmoji,
-      messageId,
+      messageId: req.body.messageId,
       userId: req.user.id
     }
   })
@@ -615,7 +611,7 @@ app.delete("/api/react", async (req: RequestUser, res: Response) => {
     message.chatId,
     {
       deleteReaction: {
-        messageId,
+        messageId: req.body.messageId,
         reactionId: existing.id
       }
     },
