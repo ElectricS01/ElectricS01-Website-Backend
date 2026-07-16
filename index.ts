@@ -1905,6 +1905,10 @@ app.patch("/api/edit-chat/:chat", async (req: RequestUser, res: Response) => {
         as: "user",
         attributes: ["id", "username", "avatar"],
         model: Users
+      },
+      {
+        attributes: ["emoji", "userId"],
+        model: Reactions
       }
     ],
     where: { chatId: chat.id }
