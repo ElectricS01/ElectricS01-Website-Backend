@@ -21,10 +21,14 @@ export const broadcastChatEvent = async function (
     chatAssociations.map((association) => association.userId)
   )
 
+  if (recipientIds.size === 0) {
+    return
+  }
+
   wss.clients.forEach((wsClient) => {
     const { user } = wsClient as AuthWebSocket
 
-    if (!user || recipientIds.size === 0) {
+    if (!user) {
       return
     }
 
@@ -63,6 +67,10 @@ export const broadcastUserEvent = async function (
           ).map((association) => association.userId)
         )
       : null
+
+  if (recipientIds && recipientIds.size === 0) {
+    return
+  }
 
   const sendPromises = Array.from(wss.clients).map(
     async (wsClient: WebSocket) => {

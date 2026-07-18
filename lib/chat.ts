@@ -5,10 +5,7 @@ import Friends from "../models/friends"
 import Messages from "../models/messages"
 import Users from "../models/users"
 
-export const getChatUserIds = function (
-  users: unknown,
-  currentUserId: number
-) {
+export const getChatUserIds = function (users: unknown, currentUserId: number) {
   if (!Array.isArray(users)) {
     return []
   }
@@ -79,63 +76,38 @@ export const getChat = async function (chatId: number, userId: number) {
   })
   chat.dataValues.lastRead = association?.lastRead
   chat.dataValues.notifications = association?.notifications
-  if (chat.type === 2) {
-    chat.dataValues.users = await Users.findAll({
-      attributes: [
-        "id",
-        "username",
-        "avatar",
-        "status",
-        "statusMessage",
-        "gameName",
-        "friendRequests"
-      ],
-      include: [
-        {
-          as: "friend",
-          attributes: ["status"],
-          model: Friends,
-          required: false,
-          where: {
-            userId
-          }
-        }
-      ]
-    })
-  } else {
-    const chatAssociations = await ChatAssociations.findAll({
-      include: [
-        {
-          as: "user",
-          attributes: [
-            "id",
-            "username",
-            "avatar",
-            "status",
-            "statusMessage",
-            "gameName",
-            "friendRequests"
-          ],
-          include: [
-            {
-              as: "friend",
-              attributes: ["status"],
-              model: Friends,
-              required: false,
-              where: {
-                userId
-              }
+  const chatAssociations = await ChatAssociations.findAll({
+    include: [
+      {
+        as: "user",
+        attributes: [
+          "id",
+          "username",
+          "avatar",
+          "status",
+          "statusMessage",
+          "gameName",
+          "friendRequests"
+        ],
+        include: [
+          {
+            as: "friend",
+            attributes: ["status"],
+            model: Friends,
+            required: false,
+            where: {
+              userId
             }
-          ],
-          model: Users
-        }
-      ],
-      where: { chatId }
-    })
-    chat.dataValues.users = chatAssociations.map(
-      (mapAssociation) => mapAssociation.user
-    )
-  }
+          }
+        ],
+        model: Users
+      }
+    ],
+    where: { chatId }
+  })
+  chat.dataValues.users = chatAssociations.map(
+    (mapAssociation) => mapAssociation.user
+  )
   return chat
 }
 

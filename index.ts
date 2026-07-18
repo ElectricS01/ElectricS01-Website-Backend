@@ -1899,6 +1899,23 @@ app.patch("/api/edit-chat/:chat", async (req: RequestUser, res: Response) => {
     name: req.body.name,
     requireVerification: req.body.requireVerification
   })
+  await broadcastChatEvent(
+    wss,
+    chat.id,
+    {
+      editChat: {
+        description: chat.description,
+        icon: chat.icon,
+        id: chat.id,
+        latest: chat.latest,
+        name: chat.name,
+        owner: chat.owner,
+        requireVerification: chat.requireVerification,
+        type: chat.type
+      }
+    },
+    req.user.id
+  )
   chat.dataValues.messages = await Messages.findAll({
     include: [
       {
@@ -1951,63 +1968,38 @@ app.patch("/api/edit-chat/:chat", async (req: RequestUser, res: Response) => {
       }
     })
   )
-  if (chat.type === 2) {
-    chat.dataValues.users = await Users.findAll({
-      attributes: [
-        "id",
-        "username",
-        "avatar",
-        "status",
-        "statusMessage",
-        "gameName",
-        "friendRequests"
-      ],
-      include: [
-        {
-          as: "friend",
-          attributes: ["status"],
-          model: Friends,
-          required: false,
-          where: {
-            userId: req.user.id
-          }
-        }
-      ]
-    })
-  } else {
-    const chatAssociations = await ChatAssociations.findAll({
-      include: [
-        {
-          as: "user",
-          attributes: [
-            "id",
-            "username",
-            "avatar",
-            "status",
-            "statusMessage",
-            "gameName",
-            "friendRequests"
-          ],
-          include: [
-            {
-              as: "friend",
-              attributes: ["status"],
-              model: Friends,
-              required: false,
-              where: {
-                userId: req.user.id
-              }
+  const chatAssociations = await ChatAssociations.findAll({
+    include: [
+      {
+        as: "user",
+        attributes: [
+          "id",
+          "username",
+          "avatar",
+          "status",
+          "statusMessage",
+          "gameName",
+          "friendRequests"
+        ],
+        include: [
+          {
+            as: "friend",
+            attributes: ["status"],
+            model: Friends,
+            required: false,
+            where: {
+              userId: req.user.id
             }
-          ],
-          model: Users
-        }
-      ],
-      where: { chatId: chat.id }
-    })
-    chat.dataValues.users = chatAssociations.map(
-      (association) => association.user
-    )
-  }
+          }
+        ],
+        model: Users
+      }
+    ],
+    where: { chatId: chat.id }
+  })
+  chat.dataValues.users = chatAssociations.map(
+    (association) => association.user
+  )
   getChats(req.user.id).then((chats) => {
     res.json({ chat, chats })
   })
@@ -2159,35 +2151,6 @@ app.listen(port, async () => {
       status: "offline"
     },
     { where: {} }
-  )
-
-  const [users, chatAssociations] = await Promise.all([
-    Users.findAll({
-      attributes: ["id"]
-    }),
-    ChatAssociations.findAll({
-      attributes: ["userId"],
-      where: {
-        chatId: 1
-      }
-    })
-  ])
-
-  const existingUserIds = new Set(
-    chatAssociations.map((association) => association.userId)
-  )
-
-  await Promise.all(
-    users.map(async (user) => {
-      if (existingUserIds.has(user.id)) {
-        return
-      }
-
-      await ChatAssociations.create({
-        chatId: 1,
-        userId: user.id
-      })
-    })
   )
 
   console.log(`ElectricS01-Website-Backend listening on port ${port}`)
