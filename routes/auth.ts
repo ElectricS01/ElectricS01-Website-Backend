@@ -10,7 +10,7 @@ import {
 import { z } from "zod"
 
 import { getChats } from "../lib/chat"
-import NodemailerLibrary from "../lib/mailer"
+import sendVerificationEmail from "../lib/emails"
 
 import Users from "../models/users"
 import Sessions from "../models/sessions"
@@ -22,7 +22,6 @@ import ChatAssociations from "../models/chatAssociations"
 import { FIVE_MINUTES, rpID, origin, challenges } from "../index"
 
 const router = Router()
-const emailLibrary = new NodemailerLibrary()
 const emailSchema = z.email()
 
 router.get("/passkey-challenge", async (_: Request, res: Response) => {
@@ -170,16 +169,7 @@ router.post("/register", async (req: Request, res: Response) => {
     username: req.body.username
   })
 
-  emailLibrary
-    .sendEmail(
-      "ElectricS01.com <support@electrics01.com>",
-      req.body.email,
-      `Hi ${user.username}, Verify your email address`,
-      `Hi ${user.username},\nPlease click the link below to verify your email address:\nhttps://electrics01.com/verify?token=${user.emailToken}\n\nIf you did not request this email, please ignore it.\n\nThanks,\nElectrics01 Support Team`
-    )
-    .catch((e: AxiosError) => {
-      console.log("Error occurred while sending email:", e)
-    })
+  await sendVerificationEmail(user.email, user.username, user.emailToken)
 
   const session = await Sessions.create({
     token: cryptoRandomString({ length: 128 }),

@@ -29,9 +29,9 @@ import { NextFunction, Request, Response } from "express"
 import auth from "./lib/auth"
 import authSession from "./lib/authSession"
 import resolveEmbeds, { checkImage } from "./lib/resolveEmbeds"
-import NodemailerLibrary from "./lib/mailer"
 import { getChat, getChatUserIds, getChats } from "./lib/chat"
 import { broadcastChatEvent, broadcastUserEvent } from "./lib/websocket"
+import sendVerificationEmail from "./lib/emails"
 
 import authRoutes from "./routes/auth"
 
@@ -78,7 +78,6 @@ export const origin = process.env.TS_NODE_DEV
   ? "http://localhost:8080"
   : "https://electrics01.com"
 
-const emailLibrary = new NodemailerLibrary()
 const postLimiter = rateLimit({
   legacyHeaders: false,
   limit: 5,
@@ -747,16 +746,8 @@ app.post(
         length: 128
       })
     })
-    emailLibrary
-      .sendEmail(
-        "support@electrics01.com",
-        user.email,
-        `Hi ${user.username}, Verify your email address`,
-        `Hi ${user.username},\nPlease click the link below to verify your email address:\nhttps://electrics01.com/verify?token=${user.emailToken}\n\nIf you did not request this email, please ignore it.\n\nThanks,\nElectrics01 Support Team`
-      )
-      .catch((e: AxiosError) => {
-        console.log("Error occurred while sending email:", e)
-      })
+    await sendVerificationEmail(user.email, user.username, user.emailToken)
+
     return res.sendStatus(204)
   }
 )

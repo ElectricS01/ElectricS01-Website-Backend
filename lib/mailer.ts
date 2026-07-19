@@ -34,12 +34,7 @@ class NodemailerLibrary {
     this.transporter = nodemailer.createTransport(options)
   }
 
-  sendEmail(
-    from: string,
-    to: string,
-    subject: string,
-    text: string
-  ): Promise<string> {
+  async sendEmail(from: string, to: string, subject: string, text: string) {
     const mailOptions: MailOptions = {
       from,
       subject,
@@ -47,15 +42,7 @@ class NodemailerLibrary {
       to
     }
 
-    return new Promise((resolve, reject) => {
-      this.transporter.sendMail(mailOptions, (error, info) => {
-        if (error) {
-          reject(error)
-        } else {
-          resolve(info)
-        }
-      })
-    })
+    return await this.transporter.sendMail(mailOptions)
   }
 }
 
