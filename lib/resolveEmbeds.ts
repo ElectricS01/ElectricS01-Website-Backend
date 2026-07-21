@@ -61,9 +61,9 @@ const isImage = async function (url: URL) {
   }
 }
 
-export const checkImage = async function (url: string) {
+export const checkValidImage = async function (url: string) {
   const linkURL = new URL(url)
-  return isBlacklisted(linkURL) || (await isImage(linkURL))
+  return !(await isBlacklisted(linkURL)) && (await isImage(linkURL))
 }
 
 export default async function resolveEmbeds(message: Messages) {

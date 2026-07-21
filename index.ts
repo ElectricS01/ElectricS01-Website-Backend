@@ -28,7 +28,7 @@ import { NextFunction, Request, Response } from "express"
 
 import auth from "./lib/auth"
 import authSession from "./lib/authSession"
-import resolveEmbeds, { checkImage } from "./lib/resolveEmbeds"
+import resolveEmbeds, { checkValidImage } from "./lib/resolveEmbeds"
 import { getChat, getChatUserIds, getChats } from "./lib/chat"
 import { broadcastChatEvent, broadcastUserEvent } from "./lib/websocket"
 import sendVerificationEmail from "./lib/emails"
@@ -1050,49 +1050,71 @@ app.post("/api/get-user", async (req: RequestUser, res: Response) => {
   res.json(user)
 })
 
+const impageProperties: string[] = ["avatar", "banner"]
+const dmOptions: string[] = ["no one", "friends", "everyone"]
+const encryptionOptions: string[] = ["never", "off", "on", "always"]
+const properties: string[] = [
+  "directMessages",
+  "friendRequests",
+  "showCreated",
+  "saveSwitcher",
+  "avatar",
+  "banner",
+  "description",
+  "encryption",
+  "savePrivateKey"
+]
+
 app.post("/api/user-prop", async (req: RequestUser, res: Response) => {
-  const properties: string[] = [
-    "directMessages",
-    "friendRequests",
-    "showCreated",
-    "saveSwitcher",
-    "avatar",
-    "banner",
-    "description",
-    "encryption",
-    "savePrivateKey"
-  ]
   if (!properties.includes(req.body.property)) {
     return res.status(400).json({
       message: "No property selected"
     })
   }
   if (
-    ((req.body.property === "avatar" || req.body.property === "banner") &&
-      req.body.val &&
-      !(await checkImage(req.body.val))) ||
-    ((req.body.property === "avatar" ||
-      req.body.property === "banner" ||
-      req.body.property === "directMessages" ||
-      req.body.property === "encryption" ||
-      req.body.property === "description") &&
-      !req.body.val)
+    impageProperties.includes(req.body.property) &&
+    req.body.val &&
+    !(await checkValidImage(req.body.val))
   ) {
     return res.status(400).json({
       message: "Invalid image"
     })
   }
+
   if (
-    (req.body.property === "friendRequests" ||
+    ((req.body.property === "directMessages" ||
+      req.body.property === "encryption" ||
+      req.body.property === "description") &&
+      !req.body.val) ||
+    ((req.body.property === "friendRequests" ||
       req.body.property === "showCreated" ||
       req.body.property === "savePrivateKey" ||
       req.body.property === "saveSwitcher") &&
-    typeof req.body.val !== "boolean"
+      typeof req.body.val !== "boolean")
   ) {
     return res.status(400).json({
       message: "Invalid request"
     })
   }
+
+  if (
+    req.body.property === "directMessages" &&
+    !dmOptions.includes(req.body.val)
+  ) {
+    return res.status(400).json({
+      message: "Invalid request"
+    })
+  }
+
+  if (
+    req.body.property === "encryption" &&
+    !encryptionOptions.includes(req.body.val)
+  ) {
+    return res.status(400).json({
+      message: "Invalid request"
+    })
+  }
+
   await req.user.update({
     [req.body.property]: req.body.val
   })
@@ -1321,6 +1343,16 @@ app.post(
       return
     }
     const otherUser = await Users.findOne({
+      include: [
+        {
+          attributes: ["status"],
+          model: Friends,
+          required: false,
+          where: {
+            userId: req.user.id
+          }
+        }
+      ],
       where: {
         id: req.params.userId
       }
@@ -1331,6 +1363,7 @@ app.post(
       })
       return
     }
+
     const currentChat =
       (await Chats.findOne({
         where: {
@@ -1344,6 +1377,19 @@ app.post(
           owner: otherUser.id
         }
       }))
+
+    if (
+      !currentChat &&
+      (otherUser.directMessages === "no one" ||
+        (otherUser.directMessages === "friends" &&
+          otherUser.friend?.status !== "accepted"))
+    ) {
+      res.status(400).json({
+        message: "Cannot send direct message to this user"
+      })
+      return
+    }
+
     if (currentChat) {
       getChat(currentChat.id, req.user.id).then((chat) => {
         getChats(req.user.id).then((chats) => {

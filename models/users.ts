@@ -13,6 +13,7 @@ import Passkeys from "../models/passkeys"
 @Table
 export default class Users extends Model {
   @Column({
+    allowNull: false,
     unique: true
   })
   username!: string
@@ -59,7 +60,9 @@ export default class Users extends Model {
   @Column(DataType.TEXT)
   description!: string
 
-  @Column
+  @Column({
+    defaultValue: "everyone"
+  })
   directMessages!: string
 
   @Column({
@@ -67,7 +70,7 @@ export default class Users extends Model {
   })
   friendRequests!: boolean
 
-  @Column
+  @Column({ defaultValue: "online" })
   status!: string
 
   @Column
@@ -82,10 +85,12 @@ export default class Users extends Model {
   @Column(DataType.DATE)
   playingSince!: string
 
-  @Column
+  @Column({
+    defaultValue: true
+  })
   showCreated!: boolean
 
-  @Column
+  @Column({ defaultValue: true })
   saveSwitcher!: boolean
 
   @Column({ defaultValue: "off" })

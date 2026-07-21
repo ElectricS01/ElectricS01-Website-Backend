@@ -91,7 +91,6 @@ export const getChat = async function (chatId: number, userId: number) {
         ],
         include: [
           {
-            as: "friend",
             attributes: ["status"],
             model: Friends,
             required: false,
