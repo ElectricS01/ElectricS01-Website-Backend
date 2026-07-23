@@ -6,7 +6,7 @@ import {
   generateAuthenticationOptions,
   verifyAuthenticationResponse
 } from "@simplewebauthn/server"
-import { z } from "zod"
+import isEmail from "validator/lib/isEmail"
 
 import { getChats } from "../lib/chat"
 import sendVerificationEmail from "../lib/emails"
@@ -21,7 +21,6 @@ import ChatAssociations from "../models/chatAssociations"
 import { FIVE_MINUTES, rpID, origin, challenges } from "../index"
 
 const router = Router()
-const emailSchema = z.email()
 
 router.get("/passkey-challenge", async (_: Request, res: Response) => {
   const options = await generateAuthenticationOptions({
@@ -47,6 +46,8 @@ router.post("/login", async (req: Request, res: Response) => {
   if (
     !req.body.username ||
     !req.body.password ||
+    typeof req.body.username !== "string" ||
+    typeof req.body.password !== "string" ||
     req.body.username.length < 1 ||
     req.body.password.length < 1
   ) {
@@ -115,6 +116,9 @@ router.post("/register", async (req: Request, res: Response) => {
     !req.body.username ||
     !req.body.password ||
     !req.body.email ||
+    typeof req.body.username !== "string" ||
+    typeof req.body.password !== "string" ||
+    typeof req.body.email !== "string" ||
     req.body.username.length < 1 ||
     req.body.password.length < 1 ||
     req.body.email.length < 1
@@ -125,9 +129,23 @@ router.post("/register", async (req: Request, res: Response) => {
     return
   }
 
-  if (!emailSchema.safeParse(req.body.email).success) {
+  if (req.body.username.length > 50) {
+    res.status(400).json({
+      message: "Invalid username"
+    })
+    return
+  }
+
+  if (!isEmail(req.body.email)) {
     res.status(400).json({
       message: "Invalid email"
+    })
+    return
+  }
+
+  if (req.body.password.length > 255) {
+    res.status(400).json({
+      message: "Invalid password"
     })
     return
   }

@@ -26,7 +26,7 @@
     "ipaddr.js": "^2.4.0",
     "mariadb": "^3.5.3",
     "multer": "^2.2.0",
-    "mysql2": "^3.23.0",
+    "mysql2": "^3.23.1",
     "nodemailer": "^8.0.11",
     "otpauth": "^9.5.1",
     "qrcode": "^1.5.4",
@@ -35,8 +35,8 @@
     "sequelize-typescript": "^2.1.6",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3",
-    "ws": "^8.21.1",
-    "zod": "^4.4.3"
+    "validator": "^13.15.35",
+    "ws": "^8.21.1"
   },
   "devDependencies": {
     "@stylistic/eslint-plugin-js": "^1.8.1",

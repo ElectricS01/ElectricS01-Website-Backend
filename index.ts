@@ -1,6 +1,5 @@
 import sequelize from "./db"
 import axios, { AxiosError, AxiosResponse } from "axios"
-import argon2 from "argon2"
 import { rateLimit } from "express-rate-limit"
 import cryptoRandomString from "crypto-random-string"
 import * as OTPAuth from "otpauth"
@@ -32,6 +31,7 @@ import resolveEmbeds, { checkValidImage } from "./lib/resolveEmbeds"
 import { getChat, getChatUserIds, getChats } from "./lib/chat"
 import { broadcastChatEvent, broadcastUserEvent } from "./lib/websocket"
 import sendVerificationEmail from "./lib/emails"
+import verifyPassword from "./lib/validator"
 
 import authRoutes from "./routes/auth"
 
@@ -771,17 +771,7 @@ app.post("/api/verify", async (req: RequestUser, res: Response) => {
 })
 
 app.post("/api/logout-all", async (req: RequestUser, res: Response) => {
-  if (!req.body.password) {
-    return res.status(400).json({
-      message: "Password is required"
-    })
-  }
-
-  if (!(await argon2.verify(req.user.password, req.body.password))) {
-    return res.status(400).json({
-      message: "Incorrect password"
-    })
-  }
+  if (!(await verifyPassword(req, res))) return
 
   await Sessions.destroy({
     where: {
@@ -1050,73 +1040,100 @@ app.post("/api/get-user", async (req: RequestUser, res: Response) => {
   res.json(user)
 })
 
-const impageProperties: string[] = ["avatar", "banner"]
-const dmOptions: string[] = ["no one", "friends", "everyone"]
-const encryptionOptions: string[] = ["never", "off", "on", "always"]
-const properties: string[] = [
-  "directMessages",
+const imageProperties: string[] = ["avatar", "banner"]
+const booleanProperties: string[] = [
   "friendRequests",
   "showCreated",
   "saveSwitcher",
+  "savePrivateKey"
+]
+const dmOptions: string[] = ["no one", "friends", "everyone"]
+const encryptionOptions: string[] = ["never", "off", "on", "always"]
+const properties: string[] = [
   "avatar",
   "banner",
+  "friendRequests",
+  "showCreated",
+  "saveSwitcher",
+  "savePrivateKey",
   "description",
-  "encryption",
-  "savePrivateKey"
+  "directMessages",
+  "encryption"
 ]
 
 app.post("/api/user-prop", async (req: RequestUser, res: Response) => {
   if (!properties.includes(req.body.property)) {
-    return res.status(400).json({
+    res.status(400).json({
       message: "No property selected"
     })
+    return
   }
+
+  const value =
+    typeof req.body.val === "string" ? req.body.val.trim() : req.body.val
+
   if (
-    impageProperties.includes(req.body.property) &&
-    req.body.val &&
-    !(await checkValidImage(req.body.val))
+    (typeof value === "string" && value.length === 0) ||
+    (typeof value !== "string" && typeof value !== "boolean")
   ) {
-    return res.status(400).json({
-      message: "Invalid image"
+    res.status(400).json({
+      message: "Value is required"
     })
+    return
   }
 
   if (
-    ((req.body.property === "directMessages" ||
-      req.body.property === "encryption" ||
-      req.body.property === "description") &&
-      !req.body.val) ||
-    ((req.body.property === "friendRequests" ||
-      req.body.property === "showCreated" ||
-      req.body.property === "savePrivateKey" ||
-      req.body.property === "saveSwitcher") &&
-      typeof req.body.val !== "boolean")
+    imageProperties.includes(req.body.property) &&
+    (typeof value !== "string" || !(await checkValidImage(value)))
   ) {
-    return res.status(400).json({
-      message: "Invalid request"
+    res.status(400).json({
+      message: "Invalid image"
     })
+    return
+  }
+
+  if (
+    booleanProperties.includes(req.body.property) &&
+    typeof value !== "boolean"
+  ) {
+    res.status(400).json({
+      message: "Invalid option"
+    })
+    return
   }
 
   if (
     req.body.property === "directMessages" &&
-    !dmOptions.includes(req.body.val)
+    (typeof value !== "string" || !dmOptions.includes(value))
   ) {
-    return res.status(400).json({
-      message: "Invalid request"
+    res.status(400).json({
+      message: "Invalid option"
     })
+    return
   }
 
   if (
     req.body.property === "encryption" &&
-    !encryptionOptions.includes(req.body.val)
+    (typeof value !== "string" || !encryptionOptions.includes(value))
   ) {
-    return res.status(400).json({
-      message: "Invalid request"
+    res.status(400).json({
+      message: "Invalid option"
     })
+    return
+  }
+
+  if (
+    req.body.property === "description" &&
+    (typeof value !== "string" || value.length > 1000)
+  ) {
+    res.status(400).json({
+      message: "Invalid description"
+    })
+    return
   }
 
   await req.user.update({
-    [req.body.property]: req.body.val
+    [req.body.property]: value
   })
   if (req.body.property === "saveSwitcher") {
     await req.user.update({
@@ -1128,7 +1145,9 @@ app.post("/api/user-prop", async (req: RequestUser, res: Response) => {
       privateKey: null
     })
   }
-  return res.sendStatus(204)
+  res.json({
+    value
+  })
 })
 
 app.post("/api/avatar", (req: RequestUser, res: Response) => {
@@ -1495,19 +1514,7 @@ app.post(
 )
 
 app.post("/api/delete-passkey/:id", async (req: RequestUser, res: Response) => {
-  if (!req.body?.password) {
-    res.status(400).json({
-      message: "Password is required"
-    })
-    return
-  }
-
-  if (!(await argon2.verify(req.user.password, req.body.password))) {
-    res.status(400).json({
-      message: "Incorrect password"
-    })
-    return
-  }
+  if (!(await verifyPassword(req, res))) return
 
   const passkey = await Passkeys.findOne({
     where: {
@@ -2082,6 +2089,55 @@ app.patch("/api/pin/:messageId", async (req: RequestUser, res: Response) => {
     pinned: !message.pinned
   })
   res.sendStatus(204)
+})
+
+app.patch("/api/edit-username", async (req: RequestUser, res: Response) => {
+  if (!req.body.username || typeof req.body.username !== "string") {
+    res.status(400).json({
+      message: "Username is required"
+    })
+    return
+  }
+
+  const username = req.body.username.trim()
+
+  if (username.length === 0) {
+    res.status(400).json({
+      message: "Username is required"
+    })
+    return
+  }
+
+  if (username.length > 50) {
+    res.status(400).json({
+      message: "Username is too long"
+    })
+    return
+  }
+
+  if (username === req.user.username) {
+    res.status(400).json({
+      message: "Username is unchanged"
+    })
+    return
+  }
+  if (!(await verifyPassword(req, res))) return
+
+  try {
+    await req.user.update({ username })
+  } catch (err) {
+    if (err instanceof UniqueConstraintError) {
+      res.status(400).json({
+        message: "Username already taken"
+      })
+      return
+    }
+    throw err
+  }
+
+  res.json({
+    username
+  })
 })
 
 wss.on("connection", (ws: AuthWebSocket) => {
