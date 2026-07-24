@@ -361,16 +361,34 @@ app.post("/api/message", async (req: RequestUser, res: Response) => {
       return
     }
     const chat = await Chats.findOne({
+      include: [
+        {
+          model: ChatAssociations,
+          required: false,
+          where: {
+            userId: req.user.id
+          }
+        }
+      ],
       where: {
         id: req.body.chatId
       }
     })
+
     if (!chat) {
       res.status(400).json({
         message: "Chat does not exist"
       })
       return
     }
+
+    if (!chat.association) {
+      res.status(403).json({
+        message: "You are not a member of this chat"
+      })
+      return
+    }
+
     if (chat.requireVerification && !req.user.emailVerified) {
       res.status(400).json({
         message: "User not verified"

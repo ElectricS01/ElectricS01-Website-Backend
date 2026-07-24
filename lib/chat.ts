@@ -87,7 +87,8 @@ export const getChat = async function (chatId: number, userId: number) {
           "status",
           "statusMessage",
           "gameName",
-          "friendRequests"
+          "friendRequests",
+          "encryption"
         ],
         include: [
           {

@@ -61,7 +61,8 @@ const isImage = async function (url: URL) {
   }
 }
 
-export const checkValidImage = async function (url: string) {
+export const checkValidImage = async function (url: string): Promise<boolean> {
+  if (!URL.canParse(url)) return false
   const linkURL = new URL(url)
   return !(await isBlacklisted(linkURL)) && (await isImage(linkURL))
 }
