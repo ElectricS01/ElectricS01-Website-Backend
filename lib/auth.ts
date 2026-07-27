@@ -2,6 +2,20 @@ import { NextFunction, Response } from "express"
 import { RequestUser } from "../types/express"
 import Sessions from "../models/sessions"
 import Users from "../models/users"
+import cryptoRandomString from "crypto-random-string"
+
+const SESSION_LENGTH_MS = 30 * 24 * 60 * 60 * 1000
+
+export const createSession = async (
+  userId: number,
+  userAgent: string
+): Promise<Sessions> =>
+  await Sessions.create({
+    expiresAt: new Date(Date.now() + SESSION_LENGTH_MS),
+    token: cryptoRandomString({ length: 128 }),
+    userAgent,
+    userId
+  })
 
 export default async function auth(
   req: RequestUser,
@@ -26,7 +40,15 @@ export default async function auth(
     res.status(401).send("Access denied. Invalid token.")
     return
   }
+
+  if (session.expiresAt && session.expiresAt < new Date()) {
+    await session.destroy()
+    res.status(401).send("Access denied. Token expired.")
+    return
+  }
+
   req.user = session.user
+  req.session = session
   next()
   return
 }

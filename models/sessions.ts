@@ -9,19 +9,19 @@ import Users from "../models/users"
 
 @Table
 export default class Sessions extends Model {
-  @Column
+  @Column({ allowNull: false })
   token!: string
 
   @ForeignKey(() => Users)
-  @Column
+  @Column({ allowNull: false })
   userId!: number
-
-  @BelongsTo(() => Users)
-  user!: Users
 
   @Column
   userAgent!: string
 
-  @Column
-  expiredAt!: Date
+  @Column({ allowNull: false })
+  expiresAt!: Date
+
+  @BelongsTo(() => Users)
+  user!: Users
 }

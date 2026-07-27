@@ -6,23 +6,35 @@ Node.js and TypeScript
 ## Project setup
 
 ```
-yarn install
+bun i
 ```
 
 ### Runs with hot-reloads for development
 
 ```
-yarn dev
+bun dev
 ```
 
 ### Runs for production
 
 ```
-yarn prod
+bun prod
+```
+
+### Lints and fixes files
+
+```
+bun lint
+```
+
+### Checks types
+
+```
+bun typecheck
 ```
 
 ### Updates dependencies
 
 ```
-yarn upgrade
+bun upgrade
 ```

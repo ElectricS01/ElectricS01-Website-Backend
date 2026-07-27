@@ -67,19 +67,41 @@ export const checkValidImage = async function (url: string): Promise<boolean> {
   return !(await isBlacklisted(linkURL)) && (await isImage(linkURL))
 }
 
+const trimTrailingPunctuation = function (url: string) {
+  let res = url
+  const opens = [...url].filter((c) => c === "(").length
+  let closes = [...url].filter((c) => c === ")").length
+
+  while (res.length > 0) {
+    const last = res.at(-1)!
+
+    if (".,!?;:]".includes(last)) {
+      res = res.slice(0, -1)
+    } else if (last === ")" && closes > opens) {
+      res = res.slice(0, -1)
+      closes -= 1
+    } else {
+      return res
+    }
+  }
+
+  return res
+}
+
 export default async function resolveEmbeds(message: Messages) {
   try {
     if (message.messageContents) {
-      const regex = /(https?:\/\/\S+)/g
+      const regex = /https?:\/\/[^\s<>"']+/g
       let links: string[] | null = message.messageContents.match(regex)
       if (!links) return
       if (links.length > 3) links = links.slice(0, 3)
       if (links) {
         const promises = links.map(async (embedLink, i) => {
-          const linkURL = new URL(embedLink)
+          const trimmedLink = trimTrailingPunctuation(embedLink)
+          const linkURL = new URL(trimmedLink)
           if (await isBlacklisted(linkURL)) {
             return {
-              embedLink,
+              embedLink: trimmedLink,
               openGraph: {
                 ogDescription: "This link cannot be mediaproxied at this time.",
                 ogTitle: "Blacklisted link"
@@ -94,7 +116,7 @@ export default async function resolveEmbeds(message: Messages) {
 
           const securityToken = cryptoRandomString({ length: 32 })
           return {
-            embedLink,
+            embedLink: trimmedLink,
             mediaProxyLink: `/api/media-proxy/${message.id}/${i}/${securityToken}`,
             securityToken,
             type: "image"

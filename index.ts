@@ -15,18 +15,13 @@ import emojiRegex from "emoji-regex"
 import { UniqueConstraintError } from "sequelize"
 
 import { Embed } from "./types/embeds"
-import {
-  RequestUser,
-  RequestUserFile,
-  RequestUserSession
-} from "./types/express"
+import { RequestUser, RequestUserFile } from "./types/express"
 import { AuthWebSocket } from "types/sockets"
 import { Challenge } from "types/challange"
 
 import { NextFunction, Request, Response } from "express"
 
 import auth from "./lib/auth"
-import authSession from "./lib/authSession"
 import resolveEmbeds, { checkValidImage } from "./lib/resolveEmbeds"
 import { getChat, getChatUserIds, getChats } from "./lib/chat"
 import { broadcastChatEvent, broadcastUserEvent } from "./lib/websocket"
@@ -176,16 +171,12 @@ app.use(
 )
 app.use("/api", authRoutes)
 
-app.post(
-  "/api/logout",
-  authSession,
-  async (req: RequestUserSession, res: Response) => {
-    await req.session.destroy()
-    res.sendStatus(204)
-  }
-)
-
 app.use(auth)
+
+app.post("/api/logout", async (req: RequestUser, res: Response) => {
+  await req.session.destroy()
+  res.sendStatus(204)
+})
 
 app.get("/api/user", async (req: RequestUser, res: Response) => {
   const notifications = await Notifications.findAll({
@@ -208,6 +199,7 @@ app.get("/api/user", async (req: RequestUser, res: Response) => {
       otpSecret: undefined,
       password: undefined,
       privateKey: undefined,
+      sessionId: req.session.id,
       updatedAt: undefined
     })
   })
@@ -1700,6 +1692,8 @@ app.delete("/api/clear-history", async (req: RequestUser, res: Response) => {
 app.delete(
   "/api/delete-session/:id",
   async (req: RequestUser, res: Response) => {
+    if (!(await verifyPassword(req, res))) return
+
     const session = await Sessions.findOne({
       where: {
         id: req.params.id,
@@ -2186,6 +2180,14 @@ wss.on("connection", (ws: AuthWebSocket) => {
         ws.close()
         return
       }
+
+      if (session.expiresAt && session.expiresAt < new Date()) {
+        await session.destroy()
+        ws.send(JSON.stringify({ authFail: "Access denied. Token expired." }))
+        ws.close()
+        return
+      }
+
       ws.user = session.user
       ws.send(JSON.stringify({ authSuccess: "Token accepted." }))
       await session.user.update({ status: "online" })

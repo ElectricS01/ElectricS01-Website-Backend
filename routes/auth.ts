@@ -10,9 +10,9 @@ import isEmail from "validator/lib/isEmail"
 
 import { getChats } from "../lib/chat"
 import sendVerificationEmail from "../lib/emails"
+import { createSession } from "../lib/auth"
 
 import Users from "../models/users"
-import Sessions from "../models/sessions"
 import Notifications from "../models/notifications"
 import Scores from "../models/scores"
 import Passkeys from "../models/passkeys"
@@ -80,11 +80,12 @@ router.post("/login", async (req: Request, res: Response) => {
       return
     }
   }
-  const session = await Sessions.create({
-    token: cryptoRandomString({ length: 128 }),
-    userAgent: req.body.userAgent || req.headers["user-agent"] || "Unknown",
-    userId: user.id
-  })
+
+  const session = await createSession(
+    user.id,
+    req.body.userAgent || req.headers["user-agent"] || "Unknown"
+  )
+
   const notifications = await Notifications.findAll({
     where: {
       userId: user.id
@@ -106,6 +107,7 @@ router.post("/login", async (req: Request, res: Response) => {
       otpSecret: undefined,
       password: undefined,
       privateKey: undefined,
+      sessionId: session.id,
       updatedAt: undefined
     })
   })
@@ -188,11 +190,10 @@ router.post("/register", async (req: Request, res: Response) => {
 
   await sendVerificationEmail(user.email, user.username, user.emailToken)
 
-  const session = await Sessions.create({
-    token: cryptoRandomString({ length: 128 }),
-    userAgent: req.body.userAgent || req.headers["user-agent"] || "Unknown",
-    userId: user.id
-  })
+  const session = await createSession(
+    user.id,
+    req.body.userAgent || req.headers["user-agent"] || "Unknown"
+  )
 
   await ChatAssociations.create({
     chatId: 1,
@@ -208,6 +209,7 @@ router.post("/register", async (req: Request, res: Response) => {
       otpSecret: undefined,
       password: undefined,
       privateKey: undefined,
+      sessionId: session.id,
       updatedAt: undefined
     })
   })
@@ -321,11 +323,10 @@ router.post("/verify-passkey", async (req: Request, res: Response) => {
     counter: verification.authenticationInfo.newCounter
   })
 
-  const session = await Sessions.create({
-    token: cryptoRandomString({ length: 128 }),
-    userAgent: req.body.userAgent || req.headers["user-agent"] || "Unknown",
-    userId: passkey.user.id
-  })
+  const session = await createSession(
+    passkey.user.id,
+    req.body.userAgent || req.headers["user-agent"] || "Unknown"
+  )
 
   const notifications = await Notifications.findAll({
     where: { userId: passkey.user.id }
