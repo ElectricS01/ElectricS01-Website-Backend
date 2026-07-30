@@ -11,21 +11,21 @@ import Users from "../models/users"
 export default class Friends extends Model {
   @ForeignKey(() => Users)
   @Column
-  userId!: number
+  declare userId: number
 
   @ForeignKey(() => Users)
   @Column
-  friendId!: number
+  declare friendId: number
 
   @Column({
     allowNull: false,
     defaultValue: "pending"
   })
-  status!: string
+  declare status: string
 
   @BelongsTo(() => Users, "userId")
-  user!: Users
+  declare user: Users
 
   @BelongsTo(() => Users, "friendId")
-  user2!: Users
+  declare user2: Users
 }

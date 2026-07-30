@@ -14,45 +14,45 @@ export default class Passkeys extends Model {
   @Column({
     allowNull: false
   })
-  userId!: number
+  declare userId: number
 
   @Column({
     allowNull: false,
     type: DataType.TEXT,
     unique: true
   })
-  credentialID!: string
+  declare credentialID: string
 
   @Column({
     allowNull: false,
     type: DataType.TEXT
   })
-  credentialPublicKey!: string
+  declare credentialPublicKey: string
 
   @Column({
     allowNull: false,
     type: DataType.BIGINT
   })
-  counter!: number
+  declare counter: number
 
   @Column({
     allowNull: false
   })
-  credentialDeviceType!: string
+  declare credentialDeviceType: string
 
   @Column({
     allowNull: false
   })
-  credentialBackedUp!: boolean
+  declare credentialBackedUp: boolean
 
   @Column(DataType.TEXT)
-  transports!: string
+  declare transports: string
 
   @Column({
     defaultValue: "Passkey"
   })
-  name!: string
+  declare name: string
 
   @BelongsTo(() => Users)
-  user!: Users
+  declare user: Users
 }

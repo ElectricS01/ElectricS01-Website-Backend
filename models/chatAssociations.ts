@@ -14,38 +14,38 @@ export default class ChatAssociations extends Model {
   @Column({
     allowNull: false
   })
-  userId!: number
+  declare userId: number
 
   @BelongsTo(() => Users, {
     foreignKey: "userId",
     onDelete: "CASCADE",
     onUpdate: "CASCADE"
   })
-  user!: Users
+  declare user: Users
 
   @ForeignKey(() => Chats)
   @Column({
     allowNull: false
   })
-  chatId!: number
+  declare chatId: number
 
   @BelongsTo(() => Chats, "chatId")
-  chat!: Chats
+  declare chat: Chats
 
   @Column({
     allowNull: false,
     defaultValue: "Member"
   })
-  type!: string
+  declare type: string
 
   @Column({
     allowNull: false,
     defaultValue: -1
   })
-  lastRead!: number
+  declare lastRead: number
 
   @Column({
     defaultValue: 0
   })
-  notifications!: number
+  declare notifications: number
 }

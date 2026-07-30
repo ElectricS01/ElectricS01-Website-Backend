@@ -10,18 +10,18 @@ import Users from "../models/users"
 @Table
 export default class Sessions extends Model {
   @Column({ allowNull: false })
-  token!: string
+  declare token: string
 
   @ForeignKey(() => Users)
   @Column({ allowNull: false })
-  userId!: number
+  declare userId: number
 
   @Column
-  userAgent!: string
+  declare userAgent: string
 
   @Column({ allowNull: false })
-  expiresAt!: Date
+  declare expiresAt: Date
 
   @BelongsTo(() => Users)
-  user!: Users
+  declare user: Users
 }

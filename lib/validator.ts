@@ -1,6 +1,6 @@
 import argon2 from "argon2"
 import { Response } from "express"
-import { RequestUser } from "types/express"
+import { RequestUser } from "../types/express"
 
 export default async function verifyPassword(
   req: RequestUser,

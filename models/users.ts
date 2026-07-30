@@ -16,7 +16,7 @@ export default class Users extends Model {
     allowNull: false,
     unique: true
   })
-  username!: string
+  declare username: string
 
   @Column({
     allowNull: false,
@@ -25,95 +25,95 @@ export default class Users extends Model {
       isEmail: true
     }
   })
-  email!: string
+  declare email: string
 
   @Column
-  password!: string
+  declare password: string
 
   @Column({
     defaultValue: false
   })
-  emailVerified!: boolean
+  declare emailVerified: boolean
 
   @Column
-  emailToken!: string
+  declare emailToken: string
 
   @Column({
     defaultValue: false
   })
-  otpVerified!: boolean
+  declare otpVerified: boolean
 
   @Column
-  otpSecret!: string
+  declare otpSecret: string
 
   @Column({
     defaultValue: false
   })
-  admin!: boolean
+  declare admin: boolean
 
   @Column
-  avatar!: string
+  declare avatar: string
 
   @Column
-  banner!: string
+  declare banner: string
 
   @Column(DataType.TEXT)
-  description!: string
+  declare description: string
 
   @Column({
     defaultValue: "everyone"
   })
-  directMessages!: string
+  declare directMessages: string
 
   @Column({
     defaultValue: true
   })
-  friendRequests!: boolean
+  declare friendRequests: boolean
 
   @Column({ defaultValue: "online" })
-  status!: string
+  declare status: string
 
   @Column
-  statusMessage!: string
+  declare statusMessage: string
 
   @Column
-  gameName!: string
+  declare gameName: string
 
   @Column
-  gameStatus!: string
+  declare gameStatus: string
 
   @Column(DataType.DATE)
-  playingSince!: string
+  declare playingSince: string
 
   @Column({
     defaultValue: true
   })
-  showCreated!: boolean
+  declare showCreated: boolean
 
   @Column({ defaultValue: true })
-  saveSwitcher!: boolean
+  declare saveSwitcher: boolean
 
   @Column({ defaultValue: "off" })
-  encryption!: string
+  declare encryption: string
 
   @Column({ defaultValue: false })
-  savePrivateKey!: boolean
+  declare savePrivateKey: boolean
 
   @Column(DataType.TEXT)
-  publicKey!: string
+  declare publicKey: string
 
   @Column(DataType.TEXT)
-  privateKey!: string
+  declare privateKey: string
 
   @Column({ defaultValue: [], type: DataType.JSON })
-  switcherHistory!: boolean
+  declare switcherHistory: boolean
 
   @HasOne(() => Friends, "friendId")
-  friend!: Friends
+  declare friend: Friends
 
   @HasMany(() => Scores, "userId")
-  tetris!: Scores[]
+  declare tetris: Scores[]
 
   @HasMany(() => Passkeys, "userId")
-  passkeys!: Passkeys[]
+  declare passkeys: Passkeys[]
 }

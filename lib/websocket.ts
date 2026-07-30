@@ -1,6 +1,6 @@
 import { WebSocket, WebSocketServer } from "ws"
 
-import { AuthWebSocket } from "types/sockets"
+import { AuthWebSocket } from "../types/sockets"
 
 import ChatAssociations from "../models/chatAssociations"
 import Friends from "../models/friends"

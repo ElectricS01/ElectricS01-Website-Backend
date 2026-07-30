@@ -7,23 +7,23 @@ export default class Notifications extends Model {
   @Column({
     allowNull: false
   })
-  userId!: number
+  declare userId: number
 
   @ForeignKey(() => Users)
   @Column({
     allowNull: false
   })
-  otherId!: number
+  declare otherId: number
 
   @Column({
     allowNull: false,
     defaultValue: 0
   })
-  type!: number
+  declare type: number
 
   @Column({
     allowNull: false,
     defaultValue: false
   })
-  isRead!: boolean
+  declare isRead: boolean
 }

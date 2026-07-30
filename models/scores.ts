@@ -5,17 +5,17 @@ import Users from "./users"
 export default class Scores extends Model {
   @ForeignKey(() => Users)
   @Column
-  userId!: number
+  declare userId: number
 
   @Column
-  gameId!: number
+  declare gameId: number
 
   @Column({
     allowNull: false,
     defaultValue: 0
   })
-  difficulty!: number
+  declare difficulty: number
 
   @Column
-  value!: number
+  declare value: number
 }

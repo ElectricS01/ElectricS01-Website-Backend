@@ -9,10 +9,10 @@ export default class Feedback extends Model {
   @Column({
     allowNull: false
   })
-  userId!: number
+  declare userId: number
 
   @Column({
     allowNull: false
   })
-  feedback!: string
+  declare feedback: string
 }

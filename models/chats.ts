@@ -17,55 +17,55 @@ export default class Chats extends Model {
   @Column({
     allowNull: false
   })
-  name!: string
+  declare name: string
 
   @Column
-  description!: string
+  declare description: string
 
   @Column
-  icon!: string
+  declare icon: string
 
   @ForeignKey(() => Users)
   @Column({
     allowNull: false
   })
-  owner!: number
+  declare owner: number
 
   @Column({
     allowNull: false
   })
-  requireVerification!: boolean
+  declare requireVerification: boolean
 
   @Column({
     allowNull: false,
     type: DataType.DATE
   })
-  latest!: number
+  declare latest: number
 
   @Column({
     allowNull: false,
     defaultValue: 0
   })
-  type!: number
+  declare type: number
 
   @HasOne(() => ChatAssociations)
-  association!: ChatAssociations
+  declare association: ChatAssociations
 
   @HasMany(() => Messages)
-  messages!: Messages
+  declare messages: Messages
 
   @HasMany(() => Messages)
-  pins!: Messages
+  declare pins: Messages
 
   @BelongsTo(() => Users, {
     as: "ownerDetails",
     foreignKey: "owner"
   })
-  ownerDetails!: Users
+  declare ownerDetails: Users
 
   @Column({
     allowNull: false,
     defaultValue: "Member"
   })
-  allowInvite!: string
+  declare allowInvite: string
 }

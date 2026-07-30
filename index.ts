@@ -16,8 +16,8 @@ import { UniqueConstraintError } from "sequelize"
 
 import { Embed } from "./types/embeds"
 import { RequestUser, RequestUserFile } from "./types/express"
-import { AuthWebSocket } from "types/sockets"
-import { Challenge } from "types/challange"
+import { AuthWebSocket } from "./types/sockets"
+import { Challenge } from "./types/challange"
 
 import { NextFunction, Request, Response } from "express"
 
@@ -311,7 +311,7 @@ app.get("/api/friends", async (req: RequestUser, res: Response) => {
   const friends = await Friends.findAll({
     include: [
       {
-        as: "user",
+        as: "user2",
         attributes: [
           "id",
           "username",
@@ -325,7 +325,7 @@ app.get("/api/friends", async (req: RequestUser, res: Response) => {
       }
     ],
     where: {
-      friendId: req.user.id
+      userId: req.user.id
     }
   })
   res.json(friends)
@@ -1204,7 +1204,13 @@ app.post("/api/friend/:userId", async (req: RequestUser, res: Response) => {
       userId: req.user.id
     }
   })
-  if (!friend) {
+
+  if (!user.friendRequests && !friend) {
+    res.status(400).json({
+      message: "This user does not accept friend request"
+    })
+    return
+  } else if (!friend) {
     await Friends.create({
       friendId: user.id,
       userId: req.user.id
@@ -1218,12 +1224,7 @@ app.post("/api/friend/:userId", async (req: RequestUser, res: Response) => {
       otherId: req.user.id,
       userId: user.id
     })
-    res.sendStatus(204)
-    return
-  } else if (!user.friendRequests && !friend.status) {
-    res.status(400).json({
-      message: "This user does not accept friend request"
-    })
+    res.json({ status: "pending" })
     return
   } else if (friend.status === "accepted" || friend.status === "pending") {
     await Friends.destroy({
@@ -1238,6 +1239,8 @@ app.post("/api/friend/:userId", async (req: RequestUser, res: Response) => {
         userId: user.id
       }
     })
+    res.sendStatus(204)
+    return
   } else if (friend.status === "incoming") {
     await Friends.update(
       { status: "accepted" },
@@ -1257,13 +1260,23 @@ app.post("/api/friend/:userId", async (req: RequestUser, res: Response) => {
         }
       }
     )
+    res.json({ status: "accepted" })
+    return
   }
-  res.sendStatus(204)
+  res.status(400).json({
+    message: "Invalid friend request status"
+  })
 })
 
 app.post(
   "/api/remove/:chatId/:userId",
   async (req: RequestUser, res: Response) => {
+    if (!req.params.userId) {
+      res.status(400).json({
+        message: "User id is required"
+      })
+      return
+    }
     const user = await Users.findOne({
       where: {
         id: req.params.userId
@@ -1286,7 +1299,13 @@ app.post(
       })
       return
     }
-    if (currentChat.owner !== req.user.id) {
+    if (currentChat.owner === req.user.id && req.user.id === user.id) {
+      res.status(400).json({
+        message: "You cannot leave your own chat"
+      })
+      return
+    }
+    if (currentChat.owner !== req.user.id && req.user.id !== user.id) {
       res.status(400).json({
         message: "You are not allowed to remove this user"
       })
@@ -1309,7 +1328,8 @@ app.post(
         id: association.id
       }
     })
-    getChat(currentChat.id, req.user.id).then((chat) => {
+    const nextChat = req.user.id === user.id ? 1 : currentChat.id
+    getChat(nextChat, req.user.id).then((chat) => {
       getChats(req.user.id).then((chats) => {
         res.json({ chat, chats })
       })
@@ -2177,14 +2197,14 @@ wss.on("connection", (ws: AuthWebSocket) => {
       })
       if (!session || !session.user) {
         ws.send(JSON.stringify({ authFail: "Access denied. Invalid token." }))
-        ws.close()
+        ws.close(3000, "Invalid token")
         return
       }
 
       if (session.expiresAt && session.expiresAt < new Date()) {
         await session.destroy()
         ws.send(JSON.stringify({ authFail: "Access denied. Token expired." }))
-        ws.close()
+        ws.close(3000, "Token expired")
         return
       }
 

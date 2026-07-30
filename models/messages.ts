@@ -16,33 +16,33 @@ import Reactions from "./reactions"
 export default class Messages extends Model {
   @ForeignKey(() => Users)
   @Column
-  userId!: number
+  declare userId: number
 
   @Column(DataType.TEXT)
-  messageContents!: string
+  declare messageContents: string
 
   @Column(DataType.JSON)
-  embeds!: Embed[]
+  declare embeds: Embed[]
 
   @Column
-  edited!: boolean
+  declare edited: boolean
 
   @Column
-  reply!: number
+  declare reply: number
 
   @ForeignKey(() => Chats)
   @Column
-  chatId!: number
+  declare chatId: number
 
   @Column({
     allowNull: false,
     defaultValue: false
   })
-  pinned!: boolean
+  declare pinned: boolean
 
   @BelongsTo(() => Users)
-  user!: Users
+  declare user: Users
 
   @HasMany(() => Reactions)
-  reactions!: Reactions[]
+  declare reactions: Reactions[]
 }

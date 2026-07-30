@@ -7,20 +7,20 @@ export default class Uploads extends Model {
   @Column({
     allowNull: false
   })
-  userId!: number
+  declare userId: number
 
   @Column({
     allowNull: false
   })
-  fileName!: string
+  declare fileName: string
 
   @Column({
     allowNull: false
   })
-  name!: string
+  declare name: string
 
   @Column({
     allowNull: false
   })
-  size!: number
+  declare size: number
 }

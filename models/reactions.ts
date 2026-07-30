@@ -14,17 +14,17 @@ export default class Reactions extends Model {
   @Column({
     allowNull: false
   })
-  messageId!: number
+  declare messageId: number
 
   @ForeignKey(() => Users)
   @Column({
     allowNull: false
   })
-  userId!: number
+  declare userId: number
 
   @Column({
     allowNull: false,
     type: DataType.STRING
   })
-  emoji!: string
+  declare emoji: string
 }
