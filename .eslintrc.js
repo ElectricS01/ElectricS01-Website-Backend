@@ -51,6 +51,8 @@ module.exports = {
     semi: "off",
     "sort-imports": "off",
     "sort-keys-fix/sort-keys-fix": "error",
-    "space-before-function-paren": "off"
+    "space-before-function-paren": "off",
+    "no-shadow": "off",
+    "@typescript-eslint/no-shadow": "error"
   }
 }

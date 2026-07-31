@@ -45,6 +45,7 @@ import Reactions from "./models/reactions"
 
 import * as process from "node:process"
 import path from "node:path"
+import { ChatType } from "./types/chat"
 
 sequelize
 
@@ -1293,7 +1294,7 @@ app.post(
       })
       return
     }
-    if (currentChat.type !== 0) {
+    if (currentChat.type !== ChatType.Group) {
       res.status(400).json({
         message: "You cannot remove a user from this type of chat"
       })

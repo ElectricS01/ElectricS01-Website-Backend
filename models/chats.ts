@@ -11,6 +11,7 @@ import {
 import ChatAssociations from "./chatAssociations"
 import Users from "./users"
 import Messages from "./messages"
+import { ChatType } from "../types/chat"
 
 @Table
 export default class Chats extends Model {
@@ -44,9 +45,10 @@ export default class Chats extends Model {
 
   @Column({
     allowNull: false,
-    defaultValue: 0
+    defaultValue: ChatType.Group,
+    type: DataType.INTEGER
   })
-  declare type: number
+  declare type: ChatType
 
   @HasOne(() => ChatAssociations)
   declare association: ChatAssociations
