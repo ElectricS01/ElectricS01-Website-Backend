@@ -26,7 +26,11 @@ import resolveEmbeds, { checkValidImage } from "./lib/resolveEmbeds"
 import { getChat, getChatUserIds, getChats } from "./lib/chat"
 import { broadcastChatEvent, broadcastUserEvent } from "./lib/websocket"
 import sendVerificationEmail from "./lib/emails"
-import verifyPassword from "./lib/validator"
+import verifyPassword, {
+  validatePrivateKey,
+  validatePublicKey,
+  validateUsername
+} from "./lib/validator"
 
 import authRoutes from "./routes/auth"
 
@@ -2125,30 +2129,8 @@ app.patch("/api/pin/:messageId", async (req: RequestUser, res: Response) => {
 })
 
 app.patch("/api/edit-username", async (req: RequestUser, res: Response) => {
-  if (!req.body.username || typeof req.body.username !== "string") {
-    res.status(400).json({
-      message: "Username is required"
-    })
-    return
-  }
-
-  const username = req.body.username.trim()
-
-  if (username.length === 0) {
-    res.status(400).json({
-      message: "Username is required"
-    })
-    return
-  }
-
-  if (username.length > 50) {
-    res.status(400).json({
-      message: "Username is too long"
-    })
-    return
-  }
-
-  if (username === req.user.username) {
+  if (!validateUsername(req, res)) return
+  if (req.body.username === req.user.username) {
     res.status(400).json({
       message: "Username is unchanged"
     })
@@ -2157,7 +2139,7 @@ app.patch("/api/edit-username", async (req: RequestUser, res: Response) => {
   if (!(await verifyPassword(req, res))) return
 
   try {
-    await req.user.update({ username })
+    await req.user.update({ username: req.body.username })
   } catch (err) {
     if (err instanceof UniqueConstraintError) {
       res.status(400).json({
@@ -2169,8 +2151,36 @@ app.patch("/api/edit-username", async (req: RequestUser, res: Response) => {
   }
 
   res.json({
-    username
+    username: req.body.username
   })
+})
+
+app.patch("/api/edit-key-pair", async (req: RequestUser, res: Response) => {
+  if (!validatePublicKey(req, res)) return
+  if (req.user.savePrivateKey) {
+    if (!validatePrivateKey(req, res)) return
+  }
+  if (!(await verifyPassword(req, res))) return
+
+  if (req.user.savePrivateKey) {
+    await req.user.update({
+      privateKey: req.body.privateKey,
+      publicKey: req.body.publicKey
+    })
+
+    res.json({
+      privateKey: req.body.privateKey,
+      publicKey: req.body.publicKey
+    })
+  } else {
+    await req.user.update({
+      publicKey: req.body.publicKey
+    })
+
+    res.json({
+      publicKey: req.body.publicKey
+    })
+  }
 })
 
 wss.on("connection", (ws: AuthWebSocket) => {

@@ -19,6 +19,13 @@ import Passkeys from "../models/passkeys"
 import ChatAssociations from "../models/chatAssociations"
 
 import { FIVE_MINUTES, rpID, origin, challenges } from "../index"
+import {
+  validatePassword,
+  validatePrivateKey,
+  validatePublicKey,
+  validateString,
+  validateUsername
+} from "../lib/validator"
 
 const router = Router()
 
@@ -43,20 +50,9 @@ router.get("/passkey-challenge", async (_: Request, res: Response) => {
 })
 
 router.post("/login", async (req: Request, res: Response) => {
-  if (
-    !req.body.username ||
-    !req.body.password ||
-    typeof req.body.username !== "string" ||
-    typeof req.body.password !== "string" ||
-    req.body.username.length < 1 ||
-    req.body.password.length < 1
-  ) {
-    res.status(400)
-    res.json({
-      message: "Form not complete"
-    })
-    return
-  }
+  if (!validateUsername(req, res)) return
+  if (!validatePassword(req, res)) return
+
   const user = await Users.findOne({
     where: {
       username: req.body.username
@@ -114,29 +110,16 @@ router.post("/login", async (req: Request, res: Response) => {
 })
 
 router.post("/register", async (req: Request, res: Response) => {
-  if (
-    !req.body.username ||
-    !req.body.password ||
-    !req.body.email ||
-    typeof req.body.username !== "string" ||
-    typeof req.body.password !== "string" ||
-    typeof req.body.email !== "string" ||
-    req.body.username.length < 1 ||
-    req.body.password.length < 1 ||
-    req.body.email.length < 1
-  ) {
+  if (!validateString(req, res, "email", "Email")) return
+  req.body.email = req.body.email.trim()
+  if (req.body.email.length < 1) {
     res.status(400).json({
-      message: "Form not complete"
+      message: "Email is required"
     })
     return
   }
-
-  if (req.body.username.length > 50) {
-    res.status(400).json({
-      message: "Invalid username"
-    })
-    return
-  }
+  if (!validateUsername(req, res)) return
+  if (!validatePassword(req, res)) return
 
   if (!isEmail(req.body.email)) {
     res.status(400).json({
@@ -145,11 +128,13 @@ router.post("/register", async (req: Request, res: Response) => {
     return
   }
 
-  if (req.body.password.length > 255) {
-    res.status(400).json({
-      message: "Invalid password"
-    })
-    return
+  if (typeof req.body.savePrivateKey === "boolean" && req.body.savePrivateKey) {
+    if (!validatePublicKey(req, res)) return
+    if (!validatePrivateKey(req, res)) return
+  } else {
+    req.body.savePrivateKey = false
+    req.body.publicKey = undefined
+    req.body.privateKey = undefined
   }
 
   if (
