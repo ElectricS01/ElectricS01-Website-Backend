@@ -1,6 +1,7 @@
 import argon2 from "argon2"
 import { Request, Response } from "express"
 import { RequestUser } from "../types/express"
+import { isEmail } from "validator"
 
 export const validateString = function (
   req: Request,
@@ -59,6 +60,28 @@ export const validateUsername = function (
   if (req.body.username.length > 50) {
     res.status(400).json({
       message: "Username is too long"
+    })
+    return false
+  }
+
+  return true
+}
+
+export const validateEmail = function (req: Request, res: Response): boolean {
+  if (!validateString(req, res, "email", "Email")) return false
+
+  req.body.email = req.body.email.trim()
+
+  if (req.body.email.length === 0) {
+    res.status(400).json({
+      message: "Email is required"
+    })
+    return false
+  }
+
+  if (!isEmail(req.body.email)) {
+    res.status(400).json({
+      message: "Invalid email"
     })
     return false
   }

@@ -6,7 +6,6 @@ import {
   generateAuthenticationOptions,
   verifyAuthenticationResponse
 } from "@simplewebauthn/server"
-import isEmail from "validator/lib/isEmail"
 
 import { getChats } from "../lib/chat"
 import sendVerificationEmail from "../lib/emails"
@@ -20,6 +19,7 @@ import ChatAssociations from "../models/chatAssociations"
 
 import { FIVE_MINUTES, rpID, origin, challenges } from "../index"
 import {
+  validateEmail,
   validatePassword,
   validatePrivateKey,
   validatePublicKey,
@@ -110,23 +110,9 @@ router.post("/login", async (req: Request, res: Response) => {
 })
 
 router.post("/register", async (req: Request, res: Response) => {
-  if (!validateString(req, res, "email", "Email")) return
-  req.body.email = req.body.email.trim()
-  if (req.body.email.length < 1) {
-    res.status(400).json({
-      message: "Email is required"
-    })
-    return
-  }
   if (!validateUsername(req, res)) return
+  if (!validateEmail(req, res)) return
   if (!validatePassword(req, res)) return
-
-  if (!isEmail(req.body.email)) {
-    res.status(400).json({
-      message: "Invalid email"
-    })
-    return
-  }
 
   if (typeof req.body.savePrivateKey === "boolean" && req.body.savePrivateKey) {
     if (!validatePublicKey(req, res)) return
@@ -201,35 +187,23 @@ router.post("/register", async (req: Request, res: Response) => {
 })
 
 router.post("/reset-password", async (req: Request, res: Response) => {
-  try {
-    if (!req.body.email || req.body.email.length < 1) {
-      res.status(500).json({
-        message: "Form not complete"
-      })
-      return
+  if (!validateEmail(req, res)) return
+
+  const user = await Users.findOne({
+    where: {
+      email: req.body.email
     }
-    const user = await Users.findOne({
-      where: {
-        email: req.body.email
-      }
-    })
-    if (!user) {
-      res.status(401).json({
-        message: "Email does not exist"
-      })
-      return
-    }
-    res.status(500).json({
-      message: "This feature is unavailable right now"
-    })
-    return
-  } catch (e) {
-    console.log(e)
-    res.status(500).json({
-      message: "Something went wrong"
+  })
+  if (!user) {
+    res.status(401).json({
+      message: "Email does not exist"
     })
     return
   }
+  res.status(500).json({
+    message: "This feature is unavailable right now"
+  })
+  return
 })
 
 router.post("/verify-passkey", async (req: Request, res: Response) => {
