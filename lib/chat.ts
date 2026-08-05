@@ -27,8 +27,15 @@ export const getChat = async function (chatId: number, userId: number) {
   const chat = await Chats.findOne({
     include: [
       {
+        as: "ownerDetails",
         attributes: ["id", "username", "avatar"],
         model: Users
+      },
+      {
+        as: "association",
+        attributes: ["lastRead"],
+        model: ChatAssociations,
+        where: { userId }
       },
       {
         as: "messages",
@@ -44,8 +51,7 @@ export const getChat = async function (chatId: number, userId: number) {
           }
         ],
         model: Messages,
-        required: false,
-        where: { chatId }
+        required: false
       },
       {
         as: "pins",
@@ -58,7 +64,7 @@ export const getChat = async function (chatId: number, userId: number) {
         ],
         model: Messages,
         required: false,
-        where: { chatId, pinned: true }
+        where: { pinned: true }
       }
     ],
     where: {
@@ -68,14 +74,6 @@ export const getChat = async function (chatId: number, userId: number) {
   if (!chat) {
     return null
   }
-  const association = await ChatAssociations.findOne({
-    where: {
-      chatId,
-      userId
-    }
-  })
-  chat.dataValues.lastRead = association?.lastRead
-  chat.dataValues.notifications = association?.notifications
   const chatAssociations = await ChatAssociations.findAll({
     include: [
       {
@@ -112,7 +110,7 @@ export const getChat = async function (chatId: number, userId: number) {
 }
 
 export const getChats = async function (userId: number) {
-  const chats1 = await Chats.findAll({
+  const chats = await Chats.findAll({
     attributes: [
       "id",
       "name",
@@ -126,34 +124,17 @@ export const getChats = async function (userId: number) {
     ],
     include: [
       {
+        as: "ownerDetails",
+        attributes: ["id", "username", "avatar"],
+        model: Users
+      },
+      {
+        as: "association",
         attributes: ["notifications"],
         model: ChatAssociations,
         where: { userId }
-      },
-      {
-        attributes: ["id", "username", "avatar"],
-        model: Users
       }
     ]
   })
-  const chats2 = await Chats.findAll({
-    attributes: [
-      "id",
-      "name",
-      "description",
-      "icon",
-      "owner",
-      "requireVerification",
-      "latest",
-      "type",
-      "allowInvite"
-    ],
-    where: {
-      type: 2
-    }
-  })
-  const uniqueChats2 = chats2.filter(
-    (chat2) => !chats1.some((chat1) => chat1.id === chat2.id)
-  )
-  return [...chats1, ...uniqueChats2]
+  return chats
 }

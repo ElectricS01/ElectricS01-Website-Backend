@@ -41,7 +41,7 @@ export default class Chats extends Model {
     allowNull: false,
     type: DataType.DATE
   })
-  declare latest: number
+  declare latest: Date
 
   @Column({
     allowNull: false,
@@ -50,14 +50,23 @@ export default class Chats extends Model {
   })
   declare type: ChatType
 
-  @HasOne(() => ChatAssociations)
+  @HasOne(() => ChatAssociations, {
+    as: "association",
+    foreignKey: "chatId"
+  })
   declare association: ChatAssociations
 
-  @HasMany(() => Messages)
-  declare messages: Messages
+  @HasMany(() => Messages, {
+    as: "messages",
+    foreignKey: "chatId"
+  })
+  declare messages: Messages[]
 
-  @HasMany(() => Messages)
-  declare pins: Messages
+  @HasMany(() => Messages, {
+    as: "pins",
+    foreignKey: "chatId"
+  })
+  declare pins: Messages[]
 
   @BelongsTo(() => Users, {
     as: "ownerDetails",

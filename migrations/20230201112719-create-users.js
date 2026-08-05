@@ -66,6 +66,14 @@ module.exports = {
       statusMessage: {
         type: Sequelize.STRING
       },
+      saveSwitcher: {
+        defaultValue: true,
+        type: Sequelize.BOOLEAN
+      },
+      switcherHistory: {
+        defaultValue: [],
+        type: Sequelize.JSON
+      },
       createdAt: {
         allowNull: false,
         type: Sequelize.DATE

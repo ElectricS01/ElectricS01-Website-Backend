@@ -281,7 +281,14 @@ app.get("/api/admin", async (req: RequestUser, res: Response) => {
   const feedback = await Feedback.findAll()
   const users = await Users.findAll({
     attributes: {
-      exclude: ["emailToken", "otpSecret", "password", "updatedAt"]
+      exclude: [
+        "emailToken",
+        "otpSecret",
+        "password",
+        "updatedAt",
+        "switcherHistory",
+        "privateKey"
+      ]
     }
   })
   return res.json({ feedback, users })
@@ -392,12 +399,6 @@ app.post("/api/message", async (req: RequestUser, res: Response) => {
       })
       return
     }
-    const association = await ChatAssociations.findOne({
-      where: {
-        chatId: req.body.chatId,
-        userId: req.user.id
-      }
-    })
     const replyMessage = req.body.reply
     const lastMessage = await Messages.create({
       chatId: req.body.chatId,
@@ -414,18 +415,19 @@ app.post("/api/message", async (req: RequestUser, res: Response) => {
     await chat.update({
       latest: Date.now()
     })
-    const messages = await Messages.count({
-      where: { chatId: req.body.chatId }
-    })
-    await association?.update({
-      lastRead: messages
-    })
     await ChatAssociations.increment("notifications", {
       where: { chatId: req.body.chatId }
     })
     await ChatAssociations.update(
-      { notifications: 0 },
-      { where: { chatId: req.body.chatId, userId: req.user.id } }
+      {
+        lastRead: lastMessage.id,
+        notifications: 0
+      },
+      {
+        where: {
+          id: chat.association.id
+        }
+      }
     )
     await broadcastChatEvent(
       wss,
@@ -1487,9 +1489,9 @@ app.post("/api/read-new/:id", async (req: RequestUser, res: Response) => {
     include: [
       {
         as: "messages",
+        limit: 1,
         model: Messages,
-        required: false,
-        where: { chatId: req.params.id }
+        order: [["id", "DESC"]]
       },
       {
         as: "association",
@@ -1512,8 +1514,13 @@ app.post("/api/read-new/:id", async (req: RequestUser, res: Response) => {
       message: "You do not have access to this chat"
     })
   }
+  if (!chat.messages || chat.messages.length === 0) {
+    return res.status(400).json({
+      message: "No messages in this chat"
+    })
+  }
   await chat.association.update({
-    lastRead: chat.dataValues.messages.length,
+    lastRead: chat.messages[0].id,
     notifications: 0
   })
   return res.sendStatus(204)

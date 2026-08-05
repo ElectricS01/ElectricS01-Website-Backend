@@ -15,10 +15,13 @@ import Reactions from "./reactions"
 @Table
 export default class Messages extends Model {
   @ForeignKey(() => Users)
-  @Column
+  @Column({ allowNull: false })
   declare userId: number
 
-  @Column(DataType.TEXT)
+  @Column({
+    allowNull: false,
+    type: DataType.TEXT
+  })
   declare messageContents: string
 
   @Column(DataType.JSON)
