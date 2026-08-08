@@ -2254,6 +2254,16 @@ wss.on("connection", (ws: AuthWebSocket) => {
           await broadcastUserEvent(wss, "changeUser", ws.user, {
             excludeUserId: ws.user.id
           })
+        } else if (socketMessage.page === null) {
+          await user?.update({
+            gameName: null,
+            gameStatus: null,
+            playingSince: null
+          })
+          if (user) ws.user = user
+          await broadcastUserEvent(wss, "changeUser", ws.user, {
+            excludeUserId: ws.user.id
+          })
         }
       }
     }
