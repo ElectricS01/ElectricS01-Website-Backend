@@ -102,7 +102,7 @@ router.post("/login", async (req: Request, res: Response) => {
       emailToken: undefined,
       otpSecret: undefined,
       password: undefined,
-      privateKey: undefined,
+      privateKey: user.savePrivateKey ? user.privateKey : undefined,
       sessionId: session.id,
       updatedAt: undefined
     })

@@ -240,7 +240,7 @@ app.get("/api/chat-users/:chatId", async (req: RequestUser, res: Response) => {
   })
 
   if (association === null) {
-    res.status(400).json({
+    res.status(403).json({
       message: "You do not have access to this chat"
     })
     return
@@ -388,7 +388,7 @@ app.post("/api/message", async (req: RequestUser, res: Response) => {
 
     if (!chat.association) {
       res.status(403).json({
-        message: "You are not a member of this chat"
+        message: "You do not have access to this chat"
       })
       return
     }
@@ -1510,7 +1510,7 @@ app.post("/api/read-new/:id", async (req: RequestUser, res: Response) => {
     })
   }
   if (!chat.association) {
-    return res.status(400).json({
+    return res.status(403).json({
       message: "You do not have access to this chat"
     })
   }
@@ -1523,7 +1523,7 @@ app.post("/api/read-new/:id", async (req: RequestUser, res: Response) => {
     lastRead: chat.messages[0].id,
     notifications: 0
   })
-  return res.sendStatus(204)
+  res.sendStatus(204)
 })
 
 app.post(
