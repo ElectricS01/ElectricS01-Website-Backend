@@ -103,6 +103,7 @@ export const broadcastUserEvent = async function (
           [eventName]: {
             avatar: user.avatar,
             chatId: options?.chatId,
+            encryption: user.encryption,
             friend: { status: friend?.status },
             friendRequests: user.friendRequests,
             gameName: user.gameName,

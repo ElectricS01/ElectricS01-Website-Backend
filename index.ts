@@ -1162,6 +1162,11 @@ app.post("/api/user-prop", async (req: RequestUser, res: Response) => {
       privateKey: null
     })
   }
+  if (req.body.property === "encryption") {
+    await broadcastUserEvent(wss, "changeUser", req.user, {
+      excludeUserId: req.user.id
+    })
+  }
   res.json({
     value
   })
