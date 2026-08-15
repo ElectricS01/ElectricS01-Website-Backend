@@ -1528,7 +1528,7 @@ app.post("/api/read-new/:id", async (req: RequestUser, res: Response) => {
     lastRead: chat.messages[0].id,
     notifications: 0
   })
-  res.sendStatus(204)
+  return res.sendStatus(204)
 })
 
 app.post(
