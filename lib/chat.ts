@@ -4,6 +4,7 @@ import Chats from "../models/chats"
 import Friends from "../models/friends"
 import Messages from "../models/messages"
 import Users from "../models/users"
+import { ChatType } from "../types/chat"
 
 export const getChatUserIds = function (users: unknown, currentUserId: number) {
   if (!Array.isArray(users)) {
@@ -86,7 +87,8 @@ export const getChat = async function (chatId: number, userId: number) {
           "statusMessage",
           "gameName",
           "friendRequests",
-          "encryption"
+          "encryption",
+          "publicKey"
         ],
         include: [
           {
@@ -103,8 +105,14 @@ export const getChat = async function (chatId: number, userId: number) {
     ],
     where: { chatId }
   })
-  chat.dataValues.users = chatAssociations.map(
-    (mapAssociation) => mapAssociation.user
+  chat.dataValues.users = chatAssociations.map((mapAssociation) =>
+    chat.type === ChatType.Direct
+      ? mapAssociation.user
+      : {
+          ...mapAssociation.user.get({ plain: true }),
+          encryption: undefined,
+          publicKey: undefined
+        }
   )
   return chat
 }

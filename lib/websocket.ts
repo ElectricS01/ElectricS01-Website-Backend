@@ -110,6 +110,7 @@ export const broadcastUserEvent = async function (
             gameStatus: user.gameStatus,
             id: user.id,
             playingSince: user.playingSince,
+            publicKey: user.publicKey,
             status: user.status,
             statusMessage: user.statusMessage,
             username: user.username
