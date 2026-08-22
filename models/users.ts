@@ -9,6 +9,7 @@ import {
 import Friends from "../models/friends"
 import Scores from "../models/scores"
 import Passkeys from "../models/passkeys"
+import { EncryptionType } from "../types/user"
 
 @Table
 export default class Users extends Model {
@@ -93,8 +94,11 @@ export default class Users extends Model {
   @Column({ defaultValue: true })
   declare saveSwitcher: boolean
 
-  @Column({ defaultValue: "off" })
-  declare encryption: string
+  @Column({
+    defaultValue: EncryptionType.Off,
+    type: DataType.STRING
+  })
+  declare encryption: EncryptionType
 
   @Column({ defaultValue: false })
   declare savePrivateKey: boolean
