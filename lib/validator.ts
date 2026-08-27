@@ -1,7 +1,11 @@
 import argon2 from "argon2"
 import { Request, Response } from "express"
+import { TOTP } from "otpauth"
 import { RequestUser } from "../types/express"
 import { isEmail } from "validator"
+import Chats from "../models/chats"
+import ChatAssociations from "../models/chatAssociations"
+import Users from "../models/users"
 
 export const validateString = function (
   req: Request,
@@ -26,15 +30,49 @@ export const validateString = function (
   return true
 }
 
-export default async function verifyPassword(
-  req: RequestUser,
-  res: Response
-): Promise<boolean> {
-  if (!validateString(req, res, "password", "Password")) return false
+export const validateStringLength = function (
+  req: Request,
+  res: Response,
+  field: string,
+  display: string,
+  max: number,
+  min: number = 1
+): boolean {
+  if (!validateString(req, res, field, display)) return false
 
-  if (!(await argon2.verify(req.user.password, req.body.password))) {
+  req.body[field] = req.body[field].trim()
+
+  if (req.body[field].length < min) {
     res.status(400).json({
-      message: "Incorrect password"
+      message: `${display} is too short`
+    })
+    return false
+  }
+
+  if (req.body[field].length > max) {
+    res.status(400).json({
+      message: `${display} is too long`
+    })
+    return false
+  }
+
+  return true
+}
+
+export const validateExactLength = function (
+  req: Request,
+  res: Response,
+  field: string,
+  display: string,
+  length: number
+): boolean {
+  if (!validateString(req, res, field, display)) return false
+
+  req.body[field] = req.body[field].trim()
+
+  if (req.body[field].length !== length) {
+    res.status(400).json({
+      message: `${display} must be ${length} characters long`
     })
     return false
   }
@@ -46,25 +84,7 @@ export const validateUsername = function (
   req: Request,
   res: Response
 ): boolean {
-  if (!validateString(req, res, "username", "Username")) return false
-
-  req.body.username = req.body.username.trim()
-
-  if (req.body.username.length === 0) {
-    res.status(400).json({
-      message: "Username is required"
-    })
-    return false
-  }
-
-  if (req.body.username.length > 50) {
-    res.status(400).json({
-      message: "Username is too long"
-    })
-    return false
-  }
-
-  return true
+  return validateStringLength(req, res, "username", "Username", 50)
 }
 
 export const validateEmail = function (req: Request, res: Response): boolean {
@@ -93,25 +113,7 @@ export const validatePassword = function (
   req: Request,
   res: Response
 ): boolean {
-  if (!validateString(req, res, "password", "Password")) return false
-
-  req.body.password = req.body.password.trim()
-
-  if (req.body.password.length === 0) {
-    res.status(400).json({
-      message: "Password is required"
-    })
-    return false
-  }
-
-  if (req.body.password.length > 255) {
-    res.status(400).json({
-      message: "Password is too long"
-    })
-    return false
-  }
-
-  return true
+  return validateStringLength(req, res, "password", "Password", 255, 4)
 }
 
 export const validatePublicKey = function (
@@ -136,16 +138,103 @@ export const validatePrivateKey = function (
   req: Request,
   res: Response
 ): boolean {
-  if (!validateString(req, res, "privateKey", "Private Key")) return false
+  return validateStringLength(req, res, "privateKey", "Private Key", 1024, 32)
+}
 
-  req.body.privateKey = req.body.privateKey.trim()
-
-  if (req.body.privateKey.length < 32 || req.body.privateKey.length > 4096) {
+export const isAllowedToMessage = async function (
+  req: RequestUser,
+  res: Response
+): Promise<Chats | undefined> {
+  if (!req.body.chatId) {
     res.status(400).json({
-      message: "Invalid private key"
+      message: "Chat not specified"
+    })
+    return
+  }
+  const chat = await Chats.findOne({
+    include: [
+      {
+        model: ChatAssociations,
+        required: false,
+        where: {
+          userId: req.user.id
+        }
+      }
+    ],
+    where: {
+      id: req.body.chatId
+    }
+  })
+
+  if (!chat) {
+    res.status(400).json({
+      message: "Chat does not exist"
+    })
+    return
+  }
+
+  if (!chat.association) {
+    res.status(403).json({
+      message: "You do not have access to this chat"
+    })
+    return
+  }
+
+  if (chat.requireVerification && !req.user.emailVerified) {
+    res.status(400).json({
+      message: "User not verified"
+    })
+    return
+  }
+
+  return chat
+}
+
+export const verifyUserPassword = async function (
+  req: Request,
+  res: Response,
+  user: Users
+): Promise<boolean> {
+  if (!validatePassword(req, res)) return false
+
+  if (!(await argon2.verify(user?.password, req.body.password))) {
+    res.status(400).json({
+      message: "Incorrect password"
     })
     return false
   }
 
   return true
+}
+
+export const verifyPassword = async function (
+  req: RequestUser,
+  res: Response
+): Promise<boolean> {
+  return await verifyUserPassword(req, res, req.user)
+}
+
+export const verifyUserOtp = function (
+  req: Request,
+  res: Response,
+  user: Users
+): boolean {
+  if (!user.otpVerified) return true
+  if (!validateExactLength(req, res, "token", "2FA code", 6)) return false
+
+  const totp = new TOTP({
+    algorithm: "SHA256",
+    secret: user.otpSecret
+  })
+
+  if (totp.validate({ token: req.body.token, window: 1 }) === null) {
+    res.status(401).json({ message: "2FA code is invalid" })
+    return false
+  }
+
+  return true
+}
+
+export const verifyOtp = function (req: RequestUser, res: Response): boolean {
+  return verifyUserOtp(req, res, req.user)
 }

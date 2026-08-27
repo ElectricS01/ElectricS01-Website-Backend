@@ -95,6 +95,7 @@ export default class Users extends Model {
   declare saveSwitcher: boolean
 
   @Column({
+    allowNull: false,
     defaultValue: EncryptionType.Off,
     type: DataType.STRING
   })

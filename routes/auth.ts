@@ -23,7 +23,6 @@ import {
   validatePassword,
   validatePrivateKey,
   validatePublicKey,
-  validateString,
   validateUsername
 } from "../lib/validator"
 

@@ -26,10 +26,14 @@ import resolveEmbeds, { checkValidImage } from "./lib/resolveEmbeds"
 import { getChat, getChatUserIds, getChats } from "./lib/chat"
 import { broadcastChatEvent, broadcastUserEvent } from "./lib/websocket"
 import sendVerificationEmail from "./lib/emails"
-import verifyPassword, {
+import {
+  isAllowedToMessage,
   validatePrivateKey,
   validatePublicKey,
-  validateUsername
+  validateStringLength,
+  validateUsername,
+  verifyOtp,
+  verifyPassword
 } from "./lib/validator"
 
 import authRoutes from "./routes/auth"
@@ -204,6 +208,7 @@ app.get("/api/user", async (req: RequestUser, res: Response) => {
       otpSecret: undefined,
       password: undefined,
       privateKey: undefined,
+      privateKeySaved: req.user.privateKey?.length > 0,
       sessionId: req.session.id,
       updatedAt: undefined
     })
@@ -344,108 +349,51 @@ app.get("/api/friends", async (req: RequestUser, res: Response) => {
 })
 
 app.post("/api/message", async (req: RequestUser, res: Response) => {
-  try {
-    const messageText = req.body.messageContents?.trim()
-    if (!messageText || messageText.length < 1) {
-      res.status(400).json({
-        message: "Message has no content"
-      })
-      return
-    }
-    if (messageText.length > 10000) {
-      res.status(400).json({
-        message: "Message too long"
-      })
-      return
-    }
-    if (!req.body.chatId) {
-      res.status(400).json({
-        message: "Chat not specified"
-      })
-      return
-    }
-    const chat = await Chats.findOne({
-      include: [
-        {
-          model: ChatAssociations,
-          required: false,
-          where: {
-            userId: req.user.id
-          }
-        }
-      ],
-      where: {
-        id: req.body.chatId
-      }
-    })
-
-    if (!chat) {
-      res.status(400).json({
-        message: "Chat does not exist"
-      })
-      return
-    }
-
-    if (!chat.association) {
-      res.status(403).json({
-        message: "You do not have access to this chat"
-      })
-      return
-    }
-
-    if (chat.requireVerification && !req.user.emailVerified) {
-      res.status(400).json({
-        message: "User not verified"
-      })
-      return
-    }
-    const replyMessage = req.body.reply
-    const lastMessage = await Messages.create({
-      chatId: req.body.chatId,
-      messageContents: messageText,
-      reply: replyMessage,
-      userId: req.user.id
-    })
-    lastMessage.dataValues.embeds = await resolveEmbeds(lastMessage)
-    lastMessage.dataValues.user = {
-      avatar: req.user.avatar,
-      id: req.user.id,
-      username: req.user.username
-    }
-    await chat.update({
-      latest: Date.now()
-    })
-    await ChatAssociations.increment("notifications", {
-      where: { chatId: req.body.chatId }
-    })
-    await ChatAssociations.update(
-      {
-        lastRead: lastMessage.id,
-        notifications: 0
-      },
-      {
-        where: {
-          id: chat.association.id
-        }
-      }
-    )
-    await broadcastChatEvent(
-      wss,
-      chat.id,
-      { newMessage: lastMessage },
-      lastMessage.userId
-    )
-    lastMessage.dataValues.reactions = []
-    getChats(req.user.id).then((chats) => {
-      res.json({ chats, lastMessage })
-    })
-  } catch (e) {
-    console.log(e)
-    res.status(500).json({
-      message: "Something went wrong"
-    })
+  if (!validateStringLength(req, res, "messageContents", "Message", 10000))
     return
+
+  const chat = await isAllowedToMessage(req, res)
+  if (!chat) return
+
+  const lastMessage = await Messages.create({
+    chatId: chat.id,
+    messageContents: req.body.messageContents,
+    reply: req.body.reply,
+    userId: req.user.id
+  })
+  lastMessage.dataValues.embeds = await resolveEmbeds(lastMessage)
+  lastMessage.dataValues.user = {
+    avatar: req.user.avatar,
+    id: req.user.id,
+    username: req.user.username
   }
+  await chat.update({
+    latest: Date.now()
+  })
+  await ChatAssociations.increment("notifications", {
+    where: { chatId: chat.id }
+  })
+  await ChatAssociations.update(
+    {
+      lastRead: lastMessage.id,
+      notifications: 0
+    },
+    {
+      where: {
+        id: chat.association.id
+      }
+    }
+  )
+  await broadcastChatEvent(
+    wss,
+    chat.id,
+    { newMessage: lastMessage },
+    lastMessage.userId
+  )
+  lastMessage.dataValues.reactions = []
+  getChats(req.user.id).then((chats) => {
+    res.json({ chats, lastMessage })
+  })
 })
 
 app.post("/api/react", async (req: RequestUser, res: Response) => {
@@ -2173,6 +2121,7 @@ app.patch("/api/edit-key-pair", async (req: RequestUser, res: Response) => {
     if (!validatePrivateKey(req, res)) return
   }
   if (!(await verifyPassword(req, res))) return
+  if (!verifyOtp(req, res)) return
 
   if (req.user.savePrivateKey) {
     await req.user.update({
