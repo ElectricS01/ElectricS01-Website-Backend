@@ -1,6 +1,5 @@
 import { Request, Response, Router } from "express"
 import argon2 from "argon2"
-import * as OTPAuth from "otpauth"
 import cryptoRandomString from "crypto-random-string"
 import {
   generateAuthenticationOptions,
@@ -23,7 +22,9 @@ import {
   validatePassword,
   validatePrivateKey,
   validatePublicKey,
-  validateUsername
+  validateUsername,
+  verifyUserOtp,
+  verifyUserPassword
 } from "../lib/validator"
 
 const router = Router()
@@ -61,20 +62,8 @@ router.post("/login", async (req: Request, res: Response) => {
     res.status(401).json({ message: "User not found" })
     return
   }
-  if (!(await argon2.verify(user.password, req.body.password))) {
-    res.status(401).json({ message: "Incorrect password" })
-    return
-  }
-  if (user.otpVerified) {
-    const totp = new OTPAuth.TOTP({
-      algorithm: "SHA256",
-      secret: user.otpSecret
-    })
-    if (totp.validate({ token: req.body.token, window: 1 }) === null) {
-      res.status(401).json({ message: "2FA code is invalid" })
-      return
-    }
-  }
+  if (!(await verifyUserPassword(req, res, user))) return
+  if (!verifyUserOtp(req, res, user)) return
 
   const session = await createSession(
     user.id,
