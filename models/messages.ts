@@ -3,6 +3,7 @@ import {
   Column,
   DataType,
   ForeignKey,
+  HasOne,
   HasMany,
   Model,
   Table
@@ -11,6 +12,7 @@ import type { Embed } from "../types/embeds"
 import Users from "./users"
 import Chats from "./chats"
 import Reactions from "./reactions"
+import EncryptedMessageKeys from "./encryptedMessageKeys"
 
 @Table
 export default class Messages extends Model {
@@ -19,7 +21,6 @@ export default class Messages extends Model {
   declare userId: number
 
   @Column({
-    allowNull: false,
     type: DataType.TEXT
   })
   declare messageContents: string
@@ -43,8 +44,26 @@ export default class Messages extends Model {
   })
   declare pinned: boolean
 
+  @Column({
+    allowNull: true,
+    type: DataType.BLOB
+  })
+  declare ciphertext: Buffer | null
+
+  @Column({
+    allowNull: true,
+    type: DataType.BLOB
+  })
+  declare nonce: Buffer | null
+
   @BelongsTo(() => Users)
   declare user: Users
+
+  @HasOne(() => EncryptedMessageKeys, {
+    as: "encryptedMessageKey",
+    foreignKey: "messageId"
+  })
+  declare encryptedMessageKey: EncryptedMessageKeys
 
   @HasMany(() => Reactions)
   declare reactions: Reactions[]

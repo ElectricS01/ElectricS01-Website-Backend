@@ -12,7 +12,7 @@ import {
 } from "@simplewebauthn/server"
 import { isoUint8Array } from "@simplewebauthn/server/helpers"
 import emojiRegex from "emoji-regex"
-import { UniqueConstraintError } from "sequelize"
+import { Op, UniqueConstraintError } from "sequelize"
 
 import { Embed } from "./types/embeds"
 import { RequestUser, RequestUserFile } from "./types/express"
@@ -28,6 +28,7 @@ import { broadcastChatEvent, broadcastUserEvent } from "./lib/websocket"
 import sendVerificationEmail from "./lib/emails"
 import {
   isAllowedToMessage,
+  validateExactLength,
   validatePrivateKey,
   validatePublicKey,
   validateStringLength,
@@ -50,10 +51,12 @@ import Notifications from "./models/notifications"
 import Uploads from "./models/uploads"
 import Passkeys from "./models/passkeys"
 import Reactions from "./models/reactions"
+import EncryptedMessageKeys from "./models/encryptedMessageKeys"
 
 import * as process from "node:process"
 import path from "node:path"
 import { ChatType } from "./types/chat"
+import { EncryptionType } from "./types/user"
 
 sequelize
 
@@ -390,6 +393,185 @@ app.post("/api/message", async (req: RequestUser, res: Response) => {
     { newMessage: lastMessage },
     lastMessage.userId
   )
+  lastMessage.dataValues.reactions = []
+  getChats(req.user.id).then((chats) => {
+    res.json({ chats, lastMessage })
+  })
+})
+
+app.post("/api/message-encrypted", async (req: RequestUser, res: Response) => {
+  if (!validateStringLength(req, res, "ciphertext", "Ciphertext", 10000)) return
+  if (!validateExactLength(req, res, "nonce", "Nonce", 32)) return
+
+  if (
+    typeof req.body.keys !== "object" ||
+    !Array.isArray(req.body.keys) ||
+    req.body.keys.length !== 2
+  ) {
+    res.status(400).json({
+      message: "Must have 2 keys"
+    })
+    return
+  }
+
+  if (
+    typeof req.body.keys[0] !== "object" ||
+    typeof req.body.keys[1] !== "object" ||
+    typeof req.body.keys[0].encryptedMessageKey !== "string" ||
+    typeof req.body.keys[0].nonce !== "string" ||
+    req.body.keys[0].encryptedMessageKey.length !== 64 ||
+    req.body.keys[0].nonce.length !== 32 ||
+    typeof req.body.keys[0].userId !== "number" ||
+    typeof req.body.keys[1].encryptedMessageKey !== "string" ||
+    typeof req.body.keys[1].nonce !== "string" ||
+    req.body.keys[1].encryptedMessageKey.length !== 64 ||
+    req.body.keys[1].nonce.length !== 32 ||
+    typeof req.body.keys[1].userId !== "number"
+  ) {
+    res.status(400).json({
+      message: "Keys must contain encryptedMessageKey, nonce, userId"
+    })
+    return
+  }
+
+  if (req.body.keys[1].userId !== req.user.id) {
+    res.status(400).json({
+      message: "Invalid userId"
+    })
+    return
+  }
+
+  const ciphertext = Buffer.from(req.body.ciphertext, "base64")
+  const nonce = Buffer.from(req.body.nonce, "base64")
+
+  const chat = await isAllowedToMessage(req, res)
+  if (!chat) return
+
+  if (chat.type !== ChatType.Direct) {
+    res.status(400).json({
+      message: "This chat doesn't support encryption"
+    })
+    return
+  }
+
+  const otherUser = await ChatAssociations.findOne({
+    include: [
+      {
+        as: "user",
+        attributes: ["id", "encryption"],
+        model: Users
+      }
+    ],
+    where: {
+      chatId: chat.id,
+      userId: {
+        [Op.ne]: req.user.id
+      }
+    }
+  })
+
+  if (!otherUser || otherUser.user.encryption === EncryptionType.Never) {
+    res.status(400).json({
+      message: "This chat doesn't support encryption"
+    })
+    return
+  }
+
+  if (req.body.keys[0].userId !== otherUser.user.id) {
+    res.status(400).json({
+      message: "Invalid userId"
+    })
+    return
+  }
+
+  const lastMessage = await sequelize.transaction(async (transaction) => {
+    const message = await Messages.create(
+      {
+        chatId: chat.id,
+        ciphertext,
+        nonce,
+        reply: req.body.reply,
+        userId: req.user.id
+      },
+      { transaction }
+    )
+
+    await EncryptedMessageKeys.create(
+      {
+        encryptedMessageKey: Buffer.from(
+          req.body.keys[0].encryptedMessageKey,
+          "base64"
+        ),
+        messageId: message.id,
+        nonce: Buffer.from(req.body.keys[0].nonce, "base64"),
+        userId: req.body.keys[0].userId
+      },
+      { transaction }
+    )
+    await EncryptedMessageKeys.create(
+      {
+        encryptedMessageKey: Buffer.from(
+          req.body.keys[1].encryptedMessageKey,
+          "base64"
+        ),
+        messageId: message.id,
+        nonce: Buffer.from(req.body.keys[1].nonce, "base64"),
+        userId: req.body.keys[1].userId
+      },
+      { transaction }
+    )
+    await chat.update(
+      {
+        latest: Date.now()
+      },
+      { transaction }
+    )
+    await ChatAssociations.increment("notifications", {
+      transaction,
+      where: { chatId: chat.id, userId: otherUser.user.id }
+    })
+    await ChatAssociations.update(
+      {
+        lastRead: message.id,
+        notifications: 0
+      },
+      {
+        transaction,
+        where: {
+          id: chat.association.id
+        }
+      }
+    )
+
+    return message
+  })
+
+  lastMessage.dataValues.ciphertext =
+    lastMessage.ciphertext?.toString("base64") ?? undefined
+  lastMessage.dataValues.nonce =
+    lastMessage.nonce?.toString("base64") ?? undefined
+
+  lastMessage.dataValues.user = {
+    avatar: req.user.avatar,
+    id: req.user.id,
+    username: req.user.username
+  }
+
+  lastMessage.dataValues.messageKey = {
+    encryptedMessageKey: req.body.keys[0].encryptedMessageKey,
+    nonce: req.body.keys[0].nonce
+  }
+  await broadcastChatEvent(
+    wss,
+    chat.id,
+    { newMessage: lastMessage },
+    lastMessage.userId
+  )
+
+  lastMessage.dataValues.messageKey = {
+    encryptedMessageKey: req.body.keys[1].encryptedMessageKey,
+    nonce: req.body.keys[1].nonce
+  }
   lastMessage.dataValues.reactions = []
   getChats(req.user.id).then((chats) => {
     res.json({ chats, lastMessage })
@@ -1734,7 +1916,7 @@ app.patch("/api/edit/:messageId", async (req: RequestUser, res: Response) => {
     }
   })
 
-  if (!message || !messageText) {
+  if (!message || !messageText || !message.messageContents) {
     res.status(400).json({
       message: "Message has no content"
     })

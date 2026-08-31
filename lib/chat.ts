@@ -5,6 +5,24 @@ import Friends from "../models/friends"
 import Messages from "../models/messages"
 import Users from "../models/users"
 import { ChatType } from "../types/chat"
+import EncryptedMessageKeys from "../models/encryptedMessageKeys"
+
+const encodeMessage = function (message: Messages) {
+  return {
+    ...message,
+
+    ciphertext: message.ciphertext?.toString("base64") ?? undefined,
+    encryptedMessageKey: undefined,
+    messageKey: message.encryptedMessageKey
+      ? {
+          encryptedMessageKey:
+            message.encryptedMessageKey.encryptedMessageKey.toString("base64"),
+          nonce: message.encryptedMessageKey.nonce.toString("base64")
+        }
+      : undefined,
+    nonce: message.nonce?.toString("base64") ?? undefined
+  }
+}
 
 export const getChatUserIds = function (users: unknown, currentUserId: number) {
   if (!Array.isArray(users)) {
@@ -49,6 +67,12 @@ export const getChat = async function (chatId: number, userId: number) {
           {
             attributes: ["emoji", "userId"],
             model: Reactions
+          },
+          {
+            attributes: ["encryptedMessageKey", "nonce"],
+            model: EncryptedMessageKeys,
+            required: false,
+            where: { userId }
           }
         ],
         model: Messages,
@@ -61,6 +85,16 @@ export const getChat = async function (chatId: number, userId: number) {
             as: "user",
             attributes: ["id", "username", "avatar"],
             model: Users
+          },
+          {
+            attributes: ["emoji", "userId"],
+            model: Reactions
+          },
+          {
+            attributes: ["encryptedMessageKey", "nonce"],
+            model: EncryptedMessageKeys,
+            required: false,
+            where: { userId }
           }
         ],
         model: Messages,
@@ -105,16 +139,26 @@ export const getChat = async function (chatId: number, userId: number) {
     ],
     where: { chatId }
   })
-  chat.dataValues.users = chatAssociations.map((mapAssociation) =>
+
+  const result = chat.get({ plain: true })
+
+  result.users = chatAssociations.map((association) =>
     chat.type === ChatType.Direct
-      ? mapAssociation.user
+      ? association.user.get({ plain: true })
       : {
-          ...mapAssociation.user.get({ plain: true }),
+          ...association.user.get({ plain: true }),
           encryption: undefined,
           publicKey: undefined
         }
   )
-  return chat
+
+  result.messages = result.messages.map((message: Messages) =>
+    encodeMessage(message)
+  )
+
+  result.pins = result.pins.map((pin: Messages) => encodeMessage(pin))
+
+  return result
 }
 
 export const getChats = async function (userId: number) {
