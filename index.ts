@@ -1053,7 +1053,7 @@ app.post("/api/confirm-passkey", async (req: RequestUser, res: Response) => {
     (c) => c.id === req.body.challengeId && c.userId === req.user.id
   )
 
-  if (challengeIndex === -1) {
+  if (challengeIndex === -1 || !challenges[challengeIndex]) {
     res.status(400).json({
       message: "Challenge not found or expired"
     })
@@ -1323,7 +1323,7 @@ app.post("/api/avatar", (req: RequestUser, res: Response) => {
 })
 
 app.post("/api/friend/:userId", async (req: RequestUser, res: Response) => {
-  if (req.user.id === parseInt(req.params.userId, 10)) {
+  if (req.user.id === parseInt(req.params.userId ?? "", 10)) {
     res.status(400).json({
       message: "You can't friend yourself"
     })
@@ -1649,7 +1649,7 @@ app.post("/api/read-new/:id", async (req: RequestUser, res: Response) => {
       message: "You do not have access to this chat"
     })
   }
-  if (!chat.messages || chat.messages.length === 0) {
+  if (!chat.messages || !chat.messages.length || !chat.messages[0]) {
     return res.status(400).json({
       message: "No messages in this chat"
     })
@@ -1941,7 +1941,7 @@ app.patch("/api/edit/:messageId", async (req: RequestUser, res: Response) => {
         model: Users
       },
       {
-        attributes: ["emoji", "userId"],
+        attributes: ["id", "emoji", "userId"],
         model: Reactions
       }
     ],
@@ -2147,7 +2147,7 @@ app.patch("/api/edit-chat/:chat", async (req: RequestUser, res: Response) => {
         model: Users
       },
       {
-        attributes: ["emoji", "userId"],
+        attributes: ["id", "emoji", "userId"],
         model: Reactions
       }
     ],

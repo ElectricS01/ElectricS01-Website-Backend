@@ -204,7 +204,7 @@ router.post("/verify-passkey", async (req: Request, res: Response) => {
     (c) => c.id === req.body.challengeId
   )
 
-  if (challengeIndex === -1) {
+  if (challengeIndex === -1 || !challenges[challengeIndex]) {
     res.status(400).json({
       message: "Challenge not found or expired"
     })

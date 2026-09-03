@@ -65,7 +65,7 @@ export const getChat = async function (chatId: number, userId: number) {
             model: Users
           },
           {
-            attributes: ["emoji", "userId"],
+            attributes: ["id", "emoji", "userId"],
             model: Reactions
           },
           {
@@ -87,7 +87,7 @@ export const getChat = async function (chatId: number, userId: number) {
             model: Users
           },
           {
-            attributes: ["emoji", "userId"],
+            attributes: ["id", "emoji", "userId"],
             model: Reactions
           },
           {
