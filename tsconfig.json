@@ -21,6 +21,10 @@
     "esModuleInterop": true,
     "noImplicitReturns": true,
     "strictNullChecks": true,
+    "noPropertyAccessFromIndexSignature": false,
+    "exactOptionalPropertyTypes": false,
+    "noUncheckedSideEffectImports": true,
+    "verbatimModuleSyntax": false,
     "strict": true,
     "resolveJsonModule": true
   }

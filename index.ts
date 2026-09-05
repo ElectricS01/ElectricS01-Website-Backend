@@ -31,6 +31,7 @@ import {
   validateExactLength,
   validatePrivateKey,
   validatePublicKey,
+  validateString,
   validateStringLength,
   validateUsername,
   verifyOtp,
@@ -1963,13 +1964,8 @@ app.patch("/api/edit/:messageId", async (req: RequestUser, res: Response) => {
 app.patch(
   "/api/edit-status-message",
   async (req: RequestUser, res: Response) => {
+    if (!validateString(req, res, "statusMessage", "Status")) return
     const statusText = req.body.statusMessage?.trim()
-    if (!statusText) {
-      res.status(400).json({
-        message: "Status has no content"
-      })
-      return
-    }
     if (statusText.length > 50) {
       res.status(400).json({
         message: "Status too long"
