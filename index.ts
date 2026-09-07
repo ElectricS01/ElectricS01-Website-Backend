@@ -31,7 +31,7 @@ import {
   validateExactLength,
   validatePrivateKey,
   validatePublicKey,
-  validateString,
+  validateMaxLength,
   validateStringLength,
   validateUsername,
   verifyOtp,
@@ -770,12 +770,10 @@ app.post("/api/unreact", async (req: RequestUser, res: Response) => {
 })
 
 app.post("/api/create-chat", async (req: RequestUser, res: Response) => {
-  if (!req.body.name) {
-    res.status(400).json({
-      message: "Chat name not specified"
-    })
+  if (!validateStringLength(req, res, "name", "Chat name", 30)) return
+  if (!validateMaxLength(req, res, "description", "Chat description", 200))
     return
-  }
+
   if (typeof req.body.requireVerification !== "boolean") {
     res.status(400).json({
       message: "requireVerification not specified"
@@ -794,18 +792,7 @@ app.post("/api/create-chat", async (req: RequestUser, res: Response) => {
     })
     return
   }
-  if (req.body.name.length > 30) {
-    res.status(400).json({
-      message: "Chat name too long"
-    })
-    return
-  }
-  if (req.body.description.length > 500) {
-    res.status(400).json({
-      message: "Chat description too long"
-    })
-    return
-  }
+
   const newChat = await Chats.create({
     description: req.body.description,
     icon: req.body.icon,
@@ -1027,28 +1014,8 @@ app.post("/api/add-passkey", async (req: RequestUser, res: Response) => {
 })
 
 app.post("/api/confirm-passkey", async (req: RequestUser, res: Response) => {
-  const passkeyName = req.body.passkeyName?.trim()
-
-  if (!passkeyName) {
-    res.status(400).json({
-      message: "Passkey name is missing"
-    })
-    return
-  }
-
-  if (passkeyName.length > 50) {
-    res.status(400).json({
-      message: "Passkey name too long"
-    })
-    return
-  }
-
-  if (!req.body.challengeId) {
-    res.status(400).json({
-      message: "Challenge ID missing"
-    })
-    return
-  }
+  if (!validateStringLength(req, res, "passkeyName", "Passkey name", 50)) return
+  if (!validateExactLength(req, res, "challengeId", "Challenge ID", 16)) return
 
   const challengeIndex = challenges.findIndex(
     (c) => c.id === req.body.challengeId && c.userId === req.user.id
@@ -1102,7 +1069,7 @@ app.post("/api/confirm-passkey", async (req: RequestUser, res: Response) => {
     credentialPublicKey: Buffer.from(
       verification.registrationInfo.credential.publicKey
     ).toString("base64url"),
-    name: passkeyName,
+    name: req.body.passkeyName,
     transports: req.body.response.transports
       ? JSON.stringify(req.body.response.transports)
       : null,
@@ -1481,18 +1448,8 @@ app.post(
 )
 
 app.post("/api/feedback", async (req: RequestUser, res: Response) => {
-  if (!req.body.feedback || req.body.feedback.length < 1) {
-    res.status(400).json({
-      message: "Feedback has no content"
-    })
-    return
-  }
-  if (req.body.feedback.length > 500) {
-    res.status(400).json({
-      message: "Feedback too long"
-    })
-    return
-  }
+  if (!validateStringLength(req, res, "feedback", "Feedback", 500)) return
+
   await Feedback.create({
     feedback: req.body.feedback,
     userId: req.user.id
@@ -1879,17 +1836,7 @@ app.delete(
 )
 
 app.patch("/api/edit-passkey/:id", async (req: RequestUser, res: Response) => {
-  const passkeyName = req.body.passkeyName?.trim()
-
-  if (!passkeyName) {
-    res.status(400).json({ message: "Passkey name is missing" })
-    return
-  }
-
-  if (passkeyName.length > 50) {
-    res.status(400).json({ message: "Passkey name too long" })
-    return
-  }
+  if (!validateStringLength(req, res, "passkeyName", "Passkey name", 50)) return
 
   const passkey = await Passkeys.findOne({
     where: {
@@ -1903,13 +1850,15 @@ app.patch("/api/edit-passkey/:id", async (req: RequestUser, res: Response) => {
     return
   }
 
-  await passkey.update({ name: passkeyName })
+  await passkey.update({ name: req.body.passkeyName })
 
-  res.json(passkeyName)
+  res.json(req.body.passkeyName)
 })
 
 app.patch("/api/edit/:messageId", async (req: RequestUser, res: Response) => {
-  const messageText = req.body.messageContents?.trim()
+  if (!validateStringLength(req, res, "messageContents", "Message", 10000))
+    return
+
   const message = await Messages.findOne({
     where: {
       id: req.params.messageId,
@@ -1917,21 +1866,21 @@ app.patch("/api/edit/:messageId", async (req: RequestUser, res: Response) => {
     }
   })
 
-  if (!message || !messageText || !message.messageContents) {
+  if (!message || !message.messageContents) {
     res.status(400).json({
       message: "Message has no content"
     })
     return
   }
 
-  if (messageText === message.messageContents) {
+  if (req.body.messageContents === message.messageContents) {
     res.status(304).json({ message: "No changes made" })
     return
   }
 
   await message.update({
     edited: true,
-    messageContents: messageText
+    messageContents: req.body.messageContents
   })
   await resolveEmbeds(message)
   const editedMessage = await Messages.findOne({
@@ -1964,17 +1913,11 @@ app.patch("/api/edit/:messageId", async (req: RequestUser, res: Response) => {
 app.patch(
   "/api/edit-status-message",
   async (req: RequestUser, res: Response) => {
-    if (!validateString(req, res, "statusMessage", "Status")) return
-    const statusText = req.body.statusMessage?.trim()
-    if (statusText.length > 50) {
-      res.status(400).json({
-        message: "Status too long"
-      })
-      return
-    }
-    if (statusText !== req.user.statusMessage) {
+    if (!validateMaxLength(req, res, "statusMessage", "Status", 50)) return
+
+    if (req.body.statusMessage !== req.user.statusMessage) {
       await req.user.update({
-        statusMessage: statusText
+        statusMessage: req.body.statusMessage
       })
     }
     await broadcastUserEvent(wss, "changeUser", req.user, {

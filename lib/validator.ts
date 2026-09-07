@@ -30,6 +30,27 @@ export const validateString = function (
   return true
 }
 
+export const validateMaxLength = function (
+  req: Request,
+  res: Response,
+  field: string,
+  display: string,
+  max: number
+): boolean {
+  if (!validateString(req, res, field, display)) return false
+
+  req.body[field] = req.body[field].trim()
+
+  if (req.body[field].length > max) {
+    res.status(400).json({
+      message: `${display} is too long`
+    })
+    return false
+  }
+
+  return true
+}
+
 export const validateStringLength = function (
   req: Request,
   res: Response,
@@ -38,20 +59,11 @@ export const validateStringLength = function (
   max: number,
   min: number = 1
 ): boolean {
-  if (!validateString(req, res, field, display)) return false
-
-  req.body[field] = req.body[field].trim()
+  if (!validateMaxLength(req, res, field, display, max)) return false
 
   if (req.body[field].length < min) {
     res.status(400).json({
       message: `${display} is too short`
-    })
-    return false
-  }
-
-  if (req.body[field].length > max) {
-    res.status(400).json({
-      message: `${display} is too long`
     })
     return false
   }
