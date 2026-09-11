@@ -670,6 +670,8 @@ app.post("/api/react", async (req: RequestUser, res: Response) => {
       },
       req.user.id
     )
+    res.json({ id: reaction.id })
+    return
   } catch (error) {
     if (!(error instanceof UniqueConstraintError)) {
       throw error
@@ -1513,19 +1515,20 @@ app.post(
       return
     }
 
-    const currentChat =
-      (await Chats.findOne({
-        where: {
-          name: otherUser.username,
-          owner: req.user.id
-        }
-      })) ||
-      (await Chats.findOne({
-        where: {
-          name: req.user.username,
-          owner: otherUser.id
-        }
-      }))
+    const currentChat = await Chats.findOne({
+      where: {
+        [Op.or]: [
+          {
+            name: otherUser.username,
+            owner: req.user.id
+          },
+          {
+            name: req.user.username,
+            owner: otherUser.id
+          }
+        ]
+      }
+    })
 
     if (
       !currentChat &&
@@ -2002,6 +2005,10 @@ app.patch("/api/score", (req: RequestUser, res: Response) => {
 })
 
 app.patch("/api/edit-chat/:chat", async (req: RequestUser, res: Response) => {
+  if (!validateStringLength(req, res, "name", "Chat name", 30)) return
+  if (!validateMaxLength(req, res, "description", "Chat description", 200))
+    return
+
   const chat = await Chats.findOne({
     where: {
       id: req.params.chat
@@ -2016,12 +2023,6 @@ app.patch("/api/edit-chat/:chat", async (req: RequestUser, res: Response) => {
   if (chat.owner !== req.user.id) {
     res.status(403).json({
       message: "Forbidden"
-    })
-    return
-  }
-  if (!req.body.name) {
-    res.status(400).json({
-      message: "Chat name not specified"
     })
     return
   }
@@ -2043,18 +2044,7 @@ app.patch("/api/edit-chat/:chat", async (req: RequestUser, res: Response) => {
     })
     return
   }
-  if (req.body.name.length > 30) {
-    res.status(400).json({
-      message: "Chat name too long"
-    })
-    return
-  }
-  if (req.body.description.length > 500) {
-    res.status(400).json({
-      message: "Chat description too long"
-    })
-    return
-  }
+
   await chat.update({
     description: req.body.description,
     icon: req.body.icon,
@@ -2196,8 +2186,7 @@ app.patch("/api/pin/:messageId", async (req: RequestUser, res: Response) => {
     })
     return
   }
-  console.log(chat)
-  if (chat.type !== 1 && chat.owner !== req.user.id) {
+  if (chat.type !== ChatType.Direct && chat.owner !== req.user.id) {
     res.status(403).json({
       message: "Forbidden"
     })
