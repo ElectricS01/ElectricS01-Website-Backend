@@ -13,6 +13,7 @@ import {
 import { isoUint8Array } from "@simplewebauthn/server/helpers"
 import emojiRegex from "emoji-regex"
 import { Op, UniqueConstraintError } from "sequelize"
+import packageJson from "./package.json"
 
 import { Embed } from "./types/embeds"
 import { RequestUser, RequestUserFile } from "./types/express"
@@ -214,7 +215,8 @@ app.get("/api/user", async (req: RequestUser, res: Response) => {
       privateKey: undefined,
       privateKeySaved: req.user.privateKey?.length > 0,
       sessionId: req.session.id,
-      updatedAt: undefined
+      updatedAt: undefined,
+      version: packageJson.version
     })
   })
 })
