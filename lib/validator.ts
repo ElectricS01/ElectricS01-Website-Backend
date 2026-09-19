@@ -153,6 +153,55 @@ export const validatePrivateKey = function (
   return validateStringLength(req, res, "privateKey", "Private Key", 1024, 32)
 }
 
+export const validateEncryptedMessage = function (
+  req: RequestUser,
+  res: Response
+): boolean {
+  if (!validateStringLength(req, res, "ciphertext", "Ciphertext", 10000))
+    return false
+  if (!validateExactLength(req, res, "nonce", "Nonce", 32)) return false
+
+  if (
+    typeof req.body.keys !== "object" ||
+    !Array.isArray(req.body.keys) ||
+    req.body.keys.length !== 2
+  ) {
+    res.status(400).json({
+      message: "Must have 2 keys"
+    })
+    return false
+  }
+
+  if (
+    typeof req.body.keys[0] !== "object" ||
+    typeof req.body.keys[1] !== "object" ||
+    typeof req.body.keys[0].encryptedMessageKey !== "string" ||
+    typeof req.body.keys[0].nonce !== "string" ||
+    req.body.keys[0].encryptedMessageKey.length !== 64 ||
+    req.body.keys[0].nonce.length !== 32 ||
+    typeof req.body.keys[0].userId !== "number" ||
+    typeof req.body.keys[1].encryptedMessageKey !== "string" ||
+    typeof req.body.keys[1].nonce !== "string" ||
+    req.body.keys[1].encryptedMessageKey.length !== 64 ||
+    req.body.keys[1].nonce.length !== 32 ||
+    typeof req.body.keys[1].userId !== "number"
+  ) {
+    res.status(400).json({
+      message: "Keys must contain encryptedMessageKey, nonce, userId"
+    })
+    return false
+  }
+
+  if (req.body.keys[1].userId !== req.user.id) {
+    res.status(400).json({
+      message: "Invalid userId"
+    })
+    return false
+  }
+
+  return true
+}
+
 export const isAllowedToMessage = async function (
   req: RequestUser,
   res: Response

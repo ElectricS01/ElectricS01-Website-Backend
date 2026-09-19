@@ -36,7 +36,8 @@ import {
   validateStringLength,
   validateUsername,
   verifyOtp,
-  verifyPassword
+  verifyPassword,
+  validateEncryptedMessage
 } from "./lib/validator"
 
 import authRoutes from "./routes/auth"
@@ -403,46 +404,7 @@ app.post("/api/message", async (req: RequestUser, res: Response) => {
 })
 
 app.post("/api/message-encrypted", async (req: RequestUser, res: Response) => {
-  if (!validateStringLength(req, res, "ciphertext", "Ciphertext", 10000)) return
-  if (!validateExactLength(req, res, "nonce", "Nonce", 32)) return
-
-  if (
-    typeof req.body.keys !== "object" ||
-    !Array.isArray(req.body.keys) ||
-    req.body.keys.length !== 2
-  ) {
-    res.status(400).json({
-      message: "Must have 2 keys"
-    })
-    return
-  }
-
-  if (
-    typeof req.body.keys[0] !== "object" ||
-    typeof req.body.keys[1] !== "object" ||
-    typeof req.body.keys[0].encryptedMessageKey !== "string" ||
-    typeof req.body.keys[0].nonce !== "string" ||
-    req.body.keys[0].encryptedMessageKey.length !== 64 ||
-    req.body.keys[0].nonce.length !== 32 ||
-    typeof req.body.keys[0].userId !== "number" ||
-    typeof req.body.keys[1].encryptedMessageKey !== "string" ||
-    typeof req.body.keys[1].nonce !== "string" ||
-    req.body.keys[1].encryptedMessageKey.length !== 64 ||
-    req.body.keys[1].nonce.length !== 32 ||
-    typeof req.body.keys[1].userId !== "number"
-  ) {
-    res.status(400).json({
-      message: "Keys must contain encryptedMessageKey, nonce, userId"
-    })
-    return
-  }
-
-  if (req.body.keys[1].userId !== req.user.id) {
-    res.status(400).json({
-      message: "Invalid userId"
-    })
-    return
-  }
+  if (!validateEncryptedMessage(req, res)) return
 
   const ciphertext = Buffer.from(req.body.ciphertext, "base64")
   const nonce = Buffer.from(req.body.nonce, "base64")
@@ -1887,33 +1849,127 @@ app.patch("/api/edit/:messageId", async (req: RequestUser, res: Response) => {
     edited: true,
     messageContents: req.body.messageContents
   })
-  await resolveEmbeds(message)
-  const editedMessage = await Messages.findOne({
-    include: [
-      {
-        as: "user",
-        attributes: ["id", "username", "avatar"],
-        model: Users
-      },
-      {
-        attributes: ["id", "emoji", "userId"],
-        model: Reactions
-      }
-    ],
-    where: {
-      id: message.id
-    }
-  })
+  message.dataValues.embeds = await resolveEmbeds(message)
+
+  message.dataValues.user = {
+    avatar: req.user.avatar,
+    id: req.user.id,
+    username: req.user.username
+  }
 
   await broadcastChatEvent(
     wss,
     message.chatId,
-    { editMessage: editedMessage },
+    { editMessage: message },
     req.user.id
   )
 
-  res.json(editedMessage)
+  res.json({ editedMessage: message })
 })
+
+app.patch(
+  "/api/edit-encrypted/:messageId",
+  async (req: RequestUser, res: Response) => {
+    if (!validateEncryptedMessage(req, res)) return
+
+    const ciphertext = Buffer.from(req.body.ciphertext, "base64")
+    const nonce = Buffer.from(req.body.nonce, "base64")
+
+    const message = await Messages.findOne({
+      where: {
+        id: req.params.messageId,
+        userId: req.user.id
+      }
+    })
+
+    if (!message || !message.ciphertext || !message.nonce) {
+      res.status(400).json({
+        message: "Message has no content"
+      })
+      return
+    }
+
+    if (ciphertext.equals(message.ciphertext) || nonce.equals(message.nonce)) {
+      res.status(304).json({ message: "No changes made" })
+      return
+    }
+
+    const editedMessage = await sequelize.transaction(async (transaction) => {
+      await message.update(
+        {
+          ciphertext,
+          edited: true,
+          nonce
+        },
+        { transaction }
+      )
+
+      await EncryptedMessageKeys.destroy({
+        transaction,
+        where: {
+          messageId: message.id
+        }
+      })
+
+      await EncryptedMessageKeys.create(
+        {
+          encryptedMessageKey: Buffer.from(
+            req.body.keys[0].encryptedMessageKey,
+            "base64"
+          ),
+          messageId: message.id,
+          nonce: Buffer.from(req.body.keys[0].nonce, "base64"),
+          userId: req.body.keys[0].userId
+        },
+        { transaction }
+      )
+      await EncryptedMessageKeys.create(
+        {
+          encryptedMessageKey: Buffer.from(
+            req.body.keys[1].encryptedMessageKey,
+            "base64"
+          ),
+          messageId: message.id,
+          nonce: Buffer.from(req.body.keys[1].nonce, "base64"),
+          userId: req.body.keys[1].userId
+        },
+        { transaction }
+      )
+
+      return message
+    })
+
+    editedMessage.dataValues.ciphertext =
+      editedMessage.ciphertext?.toString("base64") ?? undefined
+    editedMessage.dataValues.nonce =
+      editedMessage.nonce?.toString("base64") ?? undefined
+
+    editedMessage.dataValues.user = {
+      avatar: req.user.avatar,
+      id: req.user.id,
+      username: req.user.username
+    }
+
+    editedMessage.dataValues.messageKey = {
+      encryptedMessageKey: req.body.keys[0].encryptedMessageKey,
+      nonce: req.body.keys[0].nonce
+    }
+
+    await broadcastChatEvent(
+      wss,
+      message.chatId,
+      { editMessage: editedMessage },
+      req.user.id
+    )
+
+    editedMessage.dataValues.messageKey = {
+      encryptedMessageKey: req.body.keys[1].encryptedMessageKey,
+      nonce: req.body.keys[1].nonce
+    }
+
+    res.json({ editedMessage })
+  }
+)
 
 app.patch(
   "/api/edit-status-message",
